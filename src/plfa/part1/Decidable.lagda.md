@@ -20,9 +20,9 @@ of a new notion of _decidable_.
 
 ```agda
 import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl)
+open Eq using (_≡_; refl; cong)
 open Eq.≡-Reasoning
-open import Data.Nat using (ℕ; zero; suc)
+open import Data.Nat using (ℕ; zero; suc; pred)
 open import Data.Product using (_×_) renaming (_,_ to ⟨_,_⟩)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import Relation.Nullary using (¬_)
@@ -32,6 +32,8 @@ open import Data.Unit using (⊤; tt)
 open import Data.Empty using (⊥; ⊥-elim)
 open import plfa.part1.Relations using (_<_; z<s; s<s)
 open import plfa.part1.Isomorphism using (_⇔_)
+
+open import Function using (_$_; _∘_)
 ```
 
 ## Evidence vs Computation
@@ -292,20 +294,40 @@ trouble normalising evidence of negation.)
 
 Analogous to the function above, define a function to decide strict inequality:
 ```agda
-postulate
-  _<?_ : ∀ (m n : ℕ) → Dec (m < n)
+-- postulate
+--   _<?_ : ∀ (m n : ℕ) → Dec (m < n)
 ```
 
 ```agda
 -- Your code goes here
+¬n<z : ∀ {n : ℕ} → ¬ (n < zero)
+¬n<z = λ ()
+
+¬s<s : ∀ {m n : ℕ} → ¬ m < n → ¬ (suc m < suc n)
+¬s<s nn (s<s m<n) = nn m<n
+
+_<?_ : ∀ (m n : ℕ) → Dec (m < n)
+zero <? zero = no ¬n<z
+zero <? suc n = yes z<s
+suc m <? zero = no (λ ())
+suc m <? suc n with m <? n
+... | yes rs = yes $ s<s rs
+... | no rs = no $ ¬s<s rs
 ```
 
 #### Exercise `_≡ℕ?_` (practice)
 
 Define a function to decide whether two naturals are equal:
 ```agda
-postulate
-  _≡ℕ?_ : ∀ (m n : ℕ) → Dec (m ≡ n)
+-- postulate
+--   _≡ℕ?_ : ∀ (m n : ℕ) → Dec (m ≡ n)
+_≡ℕ?_ : ∀ (m n : ℕ) → Dec (m ≡ n)
+zero ≡ℕ? zero = yes refl
+zero ≡ℕ? suc n = no (λ ())
+suc m ≡ℕ? zero = no (λ ())
+suc m ≡ℕ? suc n with m ≡ℕ? n
+... | yes refl = yes refl
+... | no eqq = no $ λ x → eqq $ cong pred x
 ```
 
 ```agda

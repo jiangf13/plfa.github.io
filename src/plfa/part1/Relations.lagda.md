@@ -863,8 +863,8 @@ Show that the sum of two odd numbers is even.
 
 ```agda
 -- Your code goes here
-o+o≡e : {!!}
-o+o≡e = {!!}
+-- o+o≡e : {!!}
+-- o+o≡e = {!!}
 ```
 
 #### Exercise `Bin-predicates` (stretch) {#Bin-predicates}
