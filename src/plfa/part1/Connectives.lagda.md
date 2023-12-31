@@ -31,7 +31,7 @@ import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl)
 open Eq.≡-Reasoning
 open import Data.Nat using (ℕ)
-open import Function using (_∘_)
+open import Function using (_∘_; const)
 open import plfa.part1.Isomorphism using (_≃_; _≲_; extensionality; _⇔_)
 open plfa.part1.Isomorphism.≃-Reasoning
 ```
@@ -239,6 +239,20 @@ is isomorphic to `(A → B) × (B → A)`.
 
 ```agda
 -- Your code goes here
+ext-× : ∀ {A B : Set} {A×B : A × B} → ⟨ proj₁ A×B , proj₂ A×B ⟩ ≡ A×B
+ext-× {A×B = ⟨ a , b ⟩} = refl
+
+⇔≃× : ∀ {A B : Set} → A ⇔ B ≃ (A → B) × (B → A)
+⇔≃× = record {
+  to = λ A⇔B
+    →  ⟨ _⇔_.to A⇔B , _⇔_.from A⇔B ⟩  ;
+  from = λ A×B →
+    record {
+      to = proj₁ A×B ;
+      from = proj₂ A×B }  ;
+  from∘to = λ A⇔B → refl ;
+  to∘from = λ A×B → ext-× }
+
 ```
 
 
@@ -452,6 +466,19 @@ Show sum is commutative up to isomorphism.
 
 ```agda
 -- Your code goes here
+⊎-comm : ∀ {A B : Set} → A ⊎ B ≃ B ⊎ A
+⊎-comm = record {
+  to = ⊎-swap ;
+  from = ⊎-swap ;
+  from∘to = λ x → ⊎-swap-swap ;
+  to∘from = λ x → ⊎-swap-swap }
+  where
+    ⊎-swap : ∀ {A B : Set} → A ⊎ B → B ⊎ A
+    ⊎-swap (inj₁ x) = inj₂ x
+    ⊎-swap (inj₂ x) = inj₁ x
+    ⊎-swap-swap : ∀ {A B : Set} {A⊎B : A ⊎ B} → ⊎-swap (⊎-swap (A⊎B)) ≡ A⊎B
+    ⊎-swap-swap {A⊎B = inj₁ x} = refl
+    ⊎-swap-swap {A⊎B = inj₂ x} = refl
 ```
 
 #### Exercise `⊎-assoc` (practice)
@@ -460,6 +487,29 @@ Show sum is associative up to isomorphism.
 
 ```agda
 -- Your code goes here
+⊎-assoc : ∀ {A B C : Set} → (A ⊎ B) ⊎ C ≃ A ⊎ (B ⊎ C)
+⊎-assoc = record {
+  to = ⊎-assoc-to ;
+  from = ⊎-assoc-from ;
+  from∘to = ⊎-assoc-from∘to ;
+  to∘from = ⊎-assoc-to∘from }
+  where
+    ⊎-assoc-to : ∀ {A B C : Set} → (A ⊎ B) ⊎ C → A ⊎ (B ⊎ C)
+    ⊎-assoc-to (inj₁ (inj₁ x)) = inj₁ x
+    ⊎-assoc-to (inj₁ (inj₂ x)) = inj₂  (inj₁ x)
+    ⊎-assoc-to (inj₂ x) = inj₂ (inj₂ x)
+    ⊎-assoc-from : ∀ {A B C : Set} → A ⊎ (B ⊎ C) → (A ⊎ B) ⊎ C
+    ⊎-assoc-from (inj₁ x) = inj₁ (inj₁ x)
+    ⊎-assoc-from (inj₂ (inj₁ x)) = inj₁ (inj₂ x)
+    ⊎-assoc-from (inj₂ (inj₂ x)) = inj₂ x
+    ⊎-assoc-from∘to : ∀ {A B C : Set} → (x : (A ⊎ B) ⊎ C) → ⊎-assoc-from (⊎-assoc-to x) ≡ x
+    ⊎-assoc-from∘to (inj₁ (inj₁ x)) = refl
+    ⊎-assoc-from∘to (inj₁ (inj₂ x)) = refl
+    ⊎-assoc-from∘to (inj₂ x) = refl
+    ⊎-assoc-to∘from : ∀ {A B C : Set} → (x : A ⊎ B ⊎ C) → ⊎-assoc-to (⊎-assoc-from x) ≡ x
+    ⊎-assoc-to∘from (inj₁ x) = refl
+    ⊎-assoc-to∘from (inj₂ (inj₁ x)) = refl
+    ⊎-assoc-to∘from (inj₂ (inj₂ x)) = refl
 ```
 
 ## False is empty
@@ -523,6 +573,19 @@ Show empty is the left identity of sums up to isomorphism.
 
 ```agda
 -- Your code goes here
+⊥-identityˡ : ∀ {A : Set} → ⊥ ⊎ A ≃ A
+⊥-identityˡ = record {
+  to = ⊥-identityˡ-to ;
+  from = ⊥-identityˡ-from ;
+  from∘to = ⊥-identityˡ-from∘to ;
+  to∘from = λ y → refl }
+  where
+    ⊥-identityˡ-to : ∀ {A : Set} → ⊥ ⊎ A → A
+    ⊥-identityˡ-to (inj₂ x) = x
+    ⊥-identityˡ-from : ∀ {A : Set} → A → ⊥ ⊎ A
+    ⊥-identityˡ-from a = inj₂ a
+    ⊥-identityˡ-from∘to : ∀ {A : Set} → (x : ⊥ ⊎ A) → ⊥-identityˡ-from (⊥-identityˡ-to x) ≡ x
+    ⊥-identityˡ-from∘to (inj₂ x) = refl
 ```
 
 #### Exercise `⊥-identityʳ` (practice)
@@ -531,6 +594,15 @@ Show empty is the right identity of sums up to isomorphism.
 
 ```agda
 -- Your code goes here
+⊥-identityʳ : ∀ {A : Set} → A ⊎ ⊥ ≃ A
+⊥-identityʳ = record {
+  to = λ x → _≃_.to ⊥-identityˡ (_≃_.to ⊎-comm x) ;
+  from = λ x → _≃_.from ⊎-comm (_≃_.from ⊥-identityˡ x) ;
+  from∘to = ⊥-identityʳ-from∘to;
+  to∘from = λ y → refl }
+  where
+    ⊥-identityʳ-from∘to : ∀ {A : Set} (x : A ⊎ ⊥) →  inj₁ (_≃_.to ⊥-identityˡ (_≃_.to ⊎-comm x)) ≡ x
+    ⊥-identityʳ-from∘to (inj₁ x) = refl
 ```
 
 ## Implication is function {#implication}
@@ -754,14 +826,17 @@ one of these laws is "more true" than the other.
 
 Show that the following property holds:
 ```agda
-postulate
-  ⊎-weak-× : ∀ {A B C : Set} → (A ⊎ B) × C → A ⊎ (B × C)
+-- postulate
+  -- ⊎-weak-× : ∀ {A B C : Set} → (A ⊎ B) × C → A ⊎ (B × C)
 ```
 This is called a _weak distributive law_. Give the corresponding
 distributive law, and explain how it relates to the weak version.
 
 ```agda
 -- Your code goes here
+⊎-weak-× : ∀ {A B C : Set} → (A ⊎ B) × C → A ⊎ (B × C)
+⊎-weak-× ⟨ inj₁ a , c ⟩ = inj₁ a
+⊎-weak-× ⟨ inj₂ b , c ⟩ = inj₂ ⟨ b , c ⟩
 ```
 
 
@@ -769,14 +844,19 @@ distributive law, and explain how it relates to the weak version.
 
 Show that a disjunct of conjuncts implies a conjunct of disjuncts:
 ```agda
-postulate
-  ⊎×-implies-×⊎ : ∀ {A B C D : Set} → (A × B) ⊎ (C × D) → (A ⊎ C) × (B ⊎ D)
+-- postulate
+  -- ⊎×-implies-×⊎ : ∀ {A B C D : Set} → (A × B) ⊎ (C × D) → (A ⊎ C) × (B ⊎ D)
 ```
 Does the converse hold? If so, prove; if not, give a counterexample.
 
 ```agda
 -- Your code goes here
+⊎×-implies-×⊎ : ∀ {A B C D : Set} → (A × B) ⊎ (C × D) → (A ⊎ C) × (B ⊎ D)
+⊎×-implies-×⊎ (inj₁ ⟨ a , b ⟩) = ⟨ inj₁ a , inj₁ b ⟩
+⊎×-implies-×⊎ (inj₂ ⟨ c , d ⟩) = ⟨ inj₂ c , inj₂ d ⟩
 ```
+
+counter example: (⊥ × B) ⊎ (⊥ × D)
 
 
 ## Standard library

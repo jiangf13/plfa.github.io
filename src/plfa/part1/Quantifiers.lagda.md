@@ -13,13 +13,20 @@ This chapter introduces universal and existential quantification.
 
 ```agda
 import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl)
-open import Data.Nat using (ℕ; zero; suc; _+_; _*_)
+open Eq using (_≡_; refl; trans; sym; cong; cong-app; subst)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _≤_; z≤n; s≤s)
+open import Data.Nat.Properties using (≤-refl; ≤-trans; +-suc; +-mono-≤)
 open import Relation.Nullary using (¬_)
+open import Data.Empty using (⊥-elim)
 open import Data.Product using (_×_; proj₁; proj₂) renaming (_,_ to ⟨_,_⟩)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import plfa.part1.Isomorphism using (_≃_; extensionality; ∀-extensionality)
-open import Function using (_∘_)
+
+open import Function using (_∘_; _$_)
+open import Level renaming (zero to lzero; suc to lsuc)
+
+open import plfa.part1.Induction using (Bin; ⟨⟩; _I; _O; inc; to; from)
 ```
 
 
@@ -90,9 +97,26 @@ dependent product is ambiguous.
 
 Show that universals distribute over conjunction:
 ```agda
-postulate
-  ∀-distrib-× : ∀ {A : Set} {B C : A → Set} →
-    (∀ (x : A) → B x × C x) ≃ (∀ (x : A) → B x) × (∀ (x : A) → C x)
+-- postulate
+--   ∀-distrib-× : ∀ {A : Set} {B C : A → Set} →
+--     (∀ (x : A) → B x × C x) ≃ (∀ (x : A) → B x) × (∀ (x : A) → C x)
+
+∀→× : ∀ {A : Set} {B C : A → Set} →
+  ((x : A) → B x × C x) → ((x : A) → B x) × ((x : A) → C x)
+∀→× k = ⟨ (λ x → proj₁ ∘ k $ x) , (λ x → proj₂ ∘ k $ x) ⟩
+∀-distrib-× : ∀ {A : Set} {B C : A → Set} →
+     (∀ (x : A) → B x × C x) ≃ (∀ (x : A) → B x) × (∀ (x : A) → C x)
+×→∀ : ∀ {A : Set} {B C : A → Set} →
+  ((x : A) → B x) × ((x : A) → C x) → (x : A) → B x × C x
+×→∀ ⟨ aB , aC ⟩ x = ⟨ aB x , aC x ⟩
+∀→×→∀ : ∀ {A : Set} {B C : A → Set} →
+  (y : ((x : A) → B x) × ((x : A) → C x)) → ∀→× (×→∀ y) ≡ y
+∀→×→∀ k = refl
+∀-distrib-× = record {
+  to = ∀→×  ;
+  from = ×→∀ ;
+  from∘to = λ x → refl ;
+  to∘from = ∀→×→∀ }
 ```
 Compare this with the result (`→-distrib-×`) in
 Chapter [Connectives](/Connectives/).
@@ -103,10 +127,19 @@ Hint: you will need to use [`∀-extensionality`](/Isomorphism/#extensionality).
 
 Show that a disjunction of universals implies a universal of disjunctions:
 ```agda
-postulate
-  ⊎∀-implies-∀⊎ : ∀ {A : Set} {B C : A → Set} →
-    (∀ (x : A) → B x) ⊎ (∀ (x : A) → C x) → ∀ (x : A) → B x ⊎ C x
+-- postulate
+--   ⊎∀-implies-∀⊎ : ∀ {A : Set} {B C : A → Set} →
+--     (∀ (x : A) → B x) ⊎ (∀ (x : A) → C x) → ∀ (x : A) → B x ⊎ C x
+⊎∀-implies-∀⊎ : ∀ {A : Set} {B C : A → Set} →
+  (∀ (x : A) → B x) ⊎ (∀ (x : A) → C x) → ∀ (x : A) → B x ⊎ C x
+⊎∀-implies-∀⊎ (inj₁ ba) a = inj₁ (ba a)
+⊎∀-implies-∀⊎ (inj₂ ca) a = inj₂ (ca a)
 ```
+
+∀⊎-implies-⊎∀ : ∀ {A : Set} {B C : A → Set} →
+  (∀ (x : A) → B x ⊎ C x) → (∀ (x : A) → B x) ⊎ (∀ (x : A) → C x)
+∀⊎-implies-⊎∀ f = {!f ?!}
+
 Does the converse hold? If so, prove; if not, explain why.
 
 
@@ -118,6 +151,32 @@ data Tri : Set where
   aa : Tri
   bb : Tri
   cc : Tri
+
+→→× : ∀ {B : Tri → Set} →
+  ((x : Tri) → B x) → B aa × B bb × B cc
+→→× f = ⟨ f aa , ⟨ f bb , f cc ⟩ ⟩
+×→→ : ∀ {B : Tri → Set} →
+  B aa × B bb × B cc → (x : Tri) → B x
+×→→ ⟨ a , ⟨ _ , _ ⟩ ⟩ aa = a
+×→→ ⟨ _ , ⟨ b , _ ⟩ ⟩ bb = b
+×→→ ⟨ _ , ⟨ _ , c ⟩ ⟩ cc = c
+∀-→→×→→ : ∀ {B : Tri → Set} →
+  (y : (x : Tri) → B x) → (x : Tri) → ×→→ {B} (→→× {B} y) x ≡ y x
+∀-→→×→→ y aa = refl
+∀-→→×→→ y bb = refl
+∀-→→×→→ y cc = refl
+→→×→→ : ∀ {B : Tri → Set} →
+  (y : (x : Tri) → B x) → ×→→ (→→× y) ≡ y
+→→×→→ y = ∀-extensionality (∀-→→×→→ y)
+×→→→× : ∀ {B : Tri → Set} →
+  (y : B aa × B bb × B cc) → →→× {B} (×→→ {B} y) ≡ y
+×→→→× ⟨ a , ⟨ b , c ⟩ ⟩ = refl
+→≃× : ∀ {B : Tri → Set} → (∀ (x : Tri) → B x) ≃ B aa × B bb × B cc
+→≃× {B} = record {
+  to = →→× ;
+  from = ×→→ ;
+  from∘to = →→×→→ ;
+  to∘from = ×→→→× {B} }
 ```
 Let `B` be a type indexed by `Tri`, that is `B : Tri → Set`.
 Show that `∀ (x : Tri) → B x` is isomorphic to `B aa × B bb × B cc`.
@@ -248,25 +307,96 @@ establish the isomorphism is identical to what we wrote when discussing
 
 Show that existentials distribute over disjunction:
 ```agda
-postulate
-  ∃-distrib-⊎ : ∀ {A : Set} {B C : A → Set} →
-    ∃[ x ] (B x ⊎ C x) ≃ (∃[ x ] B x) ⊎ (∃[ x ] C x)
+-- postulate
+--   ∃-distrib-⊎ : ∀ {A : Set} {B C : A → Set} →
+--     ∃[ x ] (B x ⊎ C x) ≃ (∃[ x ] B x) ⊎ (∃[ x ] C x)
+∃→⊎ : ∀ {A : Set} {B C : A → Set} →
+  ∃-syntax (λ x → B x ⊎ C x) → ∃-syntax B ⊎ ∃-syntax C
+∃→⊎ ⟨ a , inj₁ x ⟩ = inj₁ ⟨ a , x ⟩
+∃→⊎ ⟨ a , inj₂ y ⟩ = inj₂ ⟨ a , y ⟩
+
+⊎→∃ : ∀ {A : Set} {B C : A → Set} →
+  ∃-syntax B ⊎ ∃-syntax C → ∃-syntax (λ x → B x ⊎ C x)
+⊎→∃ (inj₁ ⟨ a , x ⟩) = ⟨ a , (inj₁ x) ⟩
+⊎→∃ (inj₂ ⟨ b , x ⟩) = ⟨ b , (inj₂ x) ⟩
+
+⊎→∃→⊎ : ∀ {A : Set} {B C : A → Set} →
+  (x : ∃-syntax (λ x₁ → B x₁ ⊎ C x₁)) → ⊎→∃ (∃→⊎ x) ≡ x
+⊎→∃→⊎ ⟨ a , inj₁ x ⟩ = refl
+⊎→∃→⊎ ⟨ a , inj₂ y ⟩ = refl
+
+∃→⊎→∃ : ∀ {A : Set} {B C : A → Set} →
+  (y : ∃-syntax B ⊎ ∃-syntax C) → ∃→⊎ (⊎→∃ y) ≡ y
+∃→⊎→∃ (inj₁ ⟨ a , x ⟩) = refl
+∃→⊎→∃ (inj₂ ⟨ a , x ⟩) = refl
+
+∃-distrib-⊎ : ∀ {A : Set} {B C : A → Set} →
+  ∃[ x ] (B x ⊎ C x) ≃ (∃[ x ] B x) ⊎ (∃[ x ] C x)
+∃-distrib-⊎ = record {
+  to = ∃→⊎ ;
+  from = ⊎→∃ ;
+  from∘to = ⊎→∃→⊎ ;
+  to∘from = ∃→⊎→∃ }
 ```
 
 #### Exercise `∃×-implies-×∃` (practice)
 
 Show that an existential of conjunctions implies a conjunction of existentials:
 ```agda
-postulate
-  ∃×-implies-×∃ : ∀ {A : Set} {B C : A → Set} →
-    ∃[ x ] (B x × C x) → (∃[ x ] B x) × (∃[ x ] C x)
+-- postulate
+  -- ∃×-implies-×∃ : ∀ {A : Set} {B C : A → Set} →
+    -- ∃[ x ] (B x × C x) → (∃[ x ] B x) × (∃[ x ] C x)
+
+∃×-implies-×∃ : ∀ {A : Set} {B C : A → Set} →
+  ∃[ x ] (B x × C x) → (∃[ x ] B x) × (∃[ x ] C x)
+∃×-implies-×∃ ⟨ a , ⟨ ba , ca ⟩ ⟩ = ⟨ ⟨ a , ba ⟩ , ⟨ a , ca ⟩ ⟩
 ```
 Does the converse hold? If so, prove; if not, explain why.
+
+×∃-implies-∃× : ∀ {A : Set} {B C : A → Set} →
+  (∃[ x ] B x) × (∃[ x ] C x) → ∃[ x ] (B x × C x)
+×∃-implies-∃× ⟨ ⟨ a₁ , ba ⟩ , ⟨ a₂ , ca ⟩ ⟩ = ⟨ {!!} , ⟨ {!!} , {!!} ⟩ ⟩
+
+Impossible. Because a₁ ≠ a₂.
 
 #### Exercise `∃-⊎` (practice)
 
 Let `Tri` and `B` be as in Exercise `∀-×`.
 Show that `∃[ x ] B x` is isomorphic to `B aa ⊎ B bb ⊎ B cc`.
+
+```agda
+∃→⊎⊎⊎ : ∀ {B : Tri → Set} →
+  ∃-syntax B → B aa ⊎ B bb ⊎ B cc
+∃→⊎⊎⊎ ⟨ aa , bx ⟩ = inj₁ bx
+∃→⊎⊎⊎ ⟨ bb , bx ⟩ = inj₂ (inj₁ bx)
+∃→⊎⊎⊎ ⟨ cc , bx ⟩ = inj₂ (inj₂ bx)
+
+⊎⊎⊎→∃ : ∀ {B : Tri → Set} →
+  B aa ⊎ B bb ⊎ B cc → ∃-syntax B
+⊎⊎⊎→∃ (inj₁ x) = ⟨ aa , x ⟩
+⊎⊎⊎→∃ (inj₂ (inj₁ x)) = ⟨ bb , x ⟩
+⊎⊎⊎→∃ (inj₂ (inj₂ x)) = ⟨ cc , x ⟩
+
+⊎⊎⊎→∃→⊎⊎⊎ : ∀ {B : Tri → Set} →
+ (x : ∃-syntax B) → ⊎⊎⊎→∃ (∃→⊎⊎⊎ x) ≡ x
+⊎⊎⊎→∃→⊎⊎⊎ ⟨ aa , bx ⟩ = refl
+⊎⊎⊎→∃→⊎⊎⊎ ⟨ bb , bx ⟩ = refl
+⊎⊎⊎→∃→⊎⊎⊎ ⟨ cc , bx ⟩ = refl
+
+∃→⊎⊎⊎→∃ : ∀ {B : Tri → Set} →
+  (y : B aa ⊎ B bb ⊎ B cc) → ∃→⊎⊎⊎ {B} (⊎⊎⊎→∃ {B} y) ≡ y
+∃→⊎⊎⊎→∃ (inj₁ x) = refl
+∃→⊎⊎⊎→∃ (inj₂ (inj₁ x)) = refl
+∃→⊎⊎⊎→∃ (inj₂ (inj₂ x)) = refl
+
+∃≃⊎ : ∀ {B : Tri → Set} →
+  ∃[ x ] B x ≃ B aa ⊎ B bb ⊎ B cc
+∃≃⊎ = record {
+  to = ∃→⊎⊎⊎ ;
+  from = ⊎⊎⊎→∃ ;
+  from∘to = ⊎⊎⊎→∃→⊎⊎⊎ ;
+  to∘from = ∃→⊎⊎⊎→∃ }
+```
 
 
 ## An existential example
@@ -378,6 +508,42 @@ restated in this way.
 
 ```agda
 -- Your code goes here
+suc-+-asso : ∀ {m n : ℕ} → m + suc n ≡ suc m + n
+suc-+-asso {zero} {n} = refl
+suc-+-asso {suc m} {n} rewrite suc-+-asso {m} {n} = refl
+
++-identityʳ : ∀ {m : ℕ} → m + 0 ≡ m
++-identityʳ {zero} = refl
++-identityʳ {suc m} rewrite +-identityʳ {m} = refl
+
+even-∃′ : ∀ {n : ℕ} → even n → ∃[ m ] (    2 * m ≡ n)
+odd-∃′  : ∀ {n : ℕ} →  odd n → ∃[ m ] (1 + 2 * m ≡ n)
+
+even-∃′ even-zero = ⟨ 0 , refl ⟩
+even-∃′ (even-suc x) with odd-∃′ x
+... | ⟨ m , refl ⟩ = ⟨ suc m ,
+  begin
+    suc (m + suc (m + 0))
+  ≡⟨ cong (λ x → suc (m + suc x)) $ +-identityʳ {m} ⟩
+    suc (m + suc m)
+  ≡⟨ (cong suc $ suc-+-asso {m} {m}) ⟩
+    suc (suc (m + m))
+  ≡⟨ cong (λ x → suc (suc (m + x))) ∘ sym $ +-identityʳ {m} ⟩
+    suc (suc (m + (m + 0)))
+  ∎ ⟩
+odd-∃′ (odd-suc x) with even-∃′ x
+... | ⟨ m , refl ⟩ = ⟨ m , refl ⟩
+
+∃-even′ : ∀ {n : ℕ} → ∃[ m ] (    2 * m ≡ n) → even n
+∃-odd′  : ∀ {n : ℕ} → ∃[ m ] (1 + 2 * m ≡ n) →  odd n
+
+∃-even′ ⟨ zero , refl ⟩ = even-zero
+∃-even′ ⟨ suc x , refl ⟩ with ∃-odd′ ⟨ x , refl ⟩
+... | odd-suc m rewrite +-identityʳ {x}
+  | suc-+-asso {x} {x}
+  = even-suc (odd-suc m)
+∃-odd′ ⟨ x , refl ⟩ with ∃-even′ ⟨ x , refl ⟩
+... | m = odd-suc m
 ```
 
 #### Exercise `∃-+-≤` (practice)
@@ -387,7 +553,39 @@ Show that `y ≤ z` holds if and only if there exists a `x` such that
 
 ```agda
 -- Your code goes here
+≤→∃ : ∀ { y z : ℕ } →
+  y ≤ z → ∃[ x ] (x + y ≡ z)
+≤→∃ {z = z} z≤n = ⟨ z , +-identityʳ ⟩
+≤→∃ {y = suc m} (s≤s y<z) with ≤→∃ y<z
+... | ⟨ x , refl ⟩ = ⟨ x , suc-+-asso {x} {m} ⟩
+
+≤-suc : ∀ {x : ℕ} → x ≤ suc x
+≤-suc {zero} = z≤n
+≤-suc {suc x} = s≤s $ ≤-suc {x}
+
+∃→≤ : ∀ { y z : ℕ } →
+  ∃[ x ] (x + y ≡ z) → y ≤ z
+∃→≤ ⟨ zero , refl ⟩ = ≤-refl
+∃→≤ {y} ⟨ suc x , refl ⟩ with ∃→≤ {y} ⟨ x , refl ⟩
+... | m = ≤-trans (≤-suc {y}) (s≤s m)
 ```
+
+∃≤∃ : ∀ {y z : ℕ} → (x : y ≤ z) → ∃→≤ (≤→∃ x) ≡ x
+∃≤∃ {0} {z} z≤n = begin
+    ∃→≤ ⟨ z , +-identityʳ ⟩
+  ≡⟨ {!!} ⟩
+    z≤n
+  ∎
+∃≤∃ (s≤s x) = {!!}
+
+∃-+-≤ : ∀ { y z : ℕ } → y ≤ z ≃ ∃[ x ] (x + y ≡ z)
+∃-+-≤ = record {
+  to = ≤→∃ ;
+  from = ∃→≤ ;
+  from∘to = {!!} ;
+  to∘from = {!!} }
+
+Hard to prove isomorphism.
 
 
 ## Existentials, Universals, and Negation
@@ -429,14 +627,26 @@ requires extensionality.
 
 Show that existential of a negation implies negation of a universal:
 ```agda
-postulate
-  ∃¬-implies-¬∀ : ∀ {A : Set} {B : A → Set}
-    → ∃[ x ] (¬ B x)
-      --------------
-    → ¬ (∀ x → B x)
+-- postulate
+--   ∃¬-implies-¬∀ : ∀ {A : Set} {B : A → Set}
+--     → ∃[ x ] (¬ B x)
+--       --------------
+--     → ¬ (∀ x → B x)
+∃¬-implies-¬∀ : ∀ {A : Set} {B : A → Set}
+  → ∃[ x ] (¬ B x)
+    --------------
+  → ¬ (∀ x → B x)
+∃¬-implies-¬∀ ⟨ a , f ⟩ x = f $ x a
 ```
 Does the converse hold? If so, prove; if not, explain why.
 
+¬∀-implies-∃¬ : ∀ {A : Set} {B : A → Set}
+  → ¬ (∀ x → B x)
+    --------------
+  → ∃[ x ] (¬ B x)
+¬∀-implies-∃¬ x = ⟨ {!!} , (λ b → {!!}) ⟩
+
+We only know that there exists, but we don't have the witness.
 
 #### Exercise `Bin-isomorphism` (stretch) {#Bin-isomorphism}
 
@@ -479,8 +689,160 @@ which is a corollary of `≡Can`.
 
     proj₁≡→Can≡ : {c c′ : ∃[ b ] Can b} → proj₁ c ≡ proj₁ c′ → c ≡ c′
 
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+inc : Bin → Bin
+inc ⟨⟩ = ⟨⟩ I
+inc (x O) = x I
+inc (x I) = (inc x) O
+
+to : ℕ → Bin
+to zero = ⟨⟩ O
+to (suc x) = inc (to x)
+
+from : Bin → ℕ
+from ⟨⟩ = 0
+from (x O) = 2 * from x
+from (x I) = 1 + 2 * from x
+
 ```agda
 -- Your code goes here
+_ : inc (⟨⟩ I O I I) ≡ ⟨⟩ I I O O
+_ = refl
+
+f∘i : ∀ {b : Bin} → from (inc b) ≡ suc (from b)
+f∘i {⟨⟩} = refl
+f∘i {b O} = refl
+f∘i {b I} rewrite f∘i {b} = cong suc $ +-suc (from b) (from b + 0)
+
+f∘t : ∀ {n : ℕ} → from (to n) ≡ n
+f∘t {zero} = refl
+f∘t {suc n} rewrite f∘i {to n} = cong suc $ f∘t {n}
+
+data One : Bin → Set where
+  o1 : One (⟨⟩ I)
+  1[_]O : ∀ {b} → One b → One (b O)
+  1[_]I : ∀ {b} → One b → One (b I)
+
+≡One : ∀ {b : Bin} (o o′ : One b) → o ≡ o′
+≡One o1 o1 = refl
+≡One 1[ x ]O 1[ y ]O = cong 1[_]O $ ≡One x y
+≡One 1[ x ]I 1[ y ]I = cong 1[_]I $ ≡One x y
+
+one-inc : ∀ {b} → One b → One (inc b)
+one-inc o1 = 1[ o1 ]O
+one-inc 1[ x ]O = 1[ x ]I
+one-inc {b I} 1[ x ]I = let
+    t = one-inc x
+  in 1[ t ]O
+
+one-≥1 : ∀ {b} → One b → 1 ≤ from b
+one-≥1 o1 = s≤s z≤n
+one-≥1 {b O} 1[ t ]O rewrite (+-identityʳ { from b })
+  = +-mono-≤ z≤n (one-≥1 t)
+one-≥1 {b I} 1[ t ]I rewrite (+-identityʳ { from b })
+  = s≤s $ +-mono-≤ (z≤n {from b}) z≤n
+
+n+n≡2n : ∀ {n} → n + n ≡ 2 * n
+n+n≡2n {zero} = refl
+n+n≡2n {suc n} rewrite (+-identityʳ {n})= refl
+
+-- TODO
+to2N≡toNO : ∀ {n : ℕ}
+  → 1 ≤ n
+-------------------
+  → to (2 * n) ≡ (to n) O
+to2N≡toNO {suc zero} x = refl
+to2N≡toNO {suc (suc n)} (s≤s z≤n) = begin
+    inc (inc (to (n + suc (suc (n + zero)))))
+  ≡⟨ (cong (inc ∘ inc ∘ to) $ +-suc n (suc n + 0)) ⟩
+    inc (inc (to (suc n + (suc (n + zero)))))
+  ≡⟨ (cong (inc ∘ inc) $ to2N≡toNO {suc n} (s≤s z≤n)) ⟩
+    (inc (inc (to n)) O)
+  ∎
+--   rewrite (+-suc n ((suc (n + 0))))
+--   | n+n≡2n {suc n}
+--   -- | to2N≡toNO {suc n} (s≤s z≤n)
+--   = let t = to2N≡toNO {suc n} (s≤s z≤n) in begin
+--     inc (inc ((to ((suc n) + suc (n + 0)))))
+--   ≡⟨ cong (inc ∘ inc) $ t ⟩
+--     (inc (inc (to n)) O)
+--   ∎
+
+data Can : Bin → Set where
+  can0 : Can (⟨⟩ O)
+  can : ∀ { b : Bin } ( t : One b ) → Can b
+
+≡Can : ∀ {b : Bin} (c c′ : Can b) → c ≡ c′
+≡Can can0 can0 = refl
+≡Can can0 (can 1[ () ]O)
+≡Can (can 1[ () ]O) can0
+≡Can (can x) (can y) = cong can $ ≡One x y
+
+can-inc : ∀ {b} → Can b → Can (inc b)
+can-inc can0 = can o1
+can-inc (can o1) = can 1[ o1 ]O
+can-inc (can 1[ t ]O) = can 1[ t ]I
+can-inc (can 1[ t ]I) = can 1[ one-inc t ]O
+
+can-to : ∀ {n} → Can (to n)
+can-to {zero} = can0
+can-to {suc n} = let t = can-to {n}
+  in can-inc t
+
+can-t∘f : ∀ {b} → Can b → to (from b) ≡ b
+can-t∘f can0 = refl
+can-t∘f (can o1) = refl
+can-t∘f {b O} (can 1[ t ]O) = begin
+    to (from b + (from b + zero))
+  ≡⟨ to2N≡toNO (one-≥1 t) ⟩
+    to (from b) O
+  ≡⟨ cong (_O) $ can-t∘f {b} (can t) ⟩
+    b O
+  ∎
+can-t∘f {b I} (can 1[ t ]I) = begin
+    inc (to (from b + (from b + 0)))
+  ≡⟨ cong inc ∘ to2N≡toNO {from b} $ one-≥1 t ⟩
+    inc (to (from b) O)
+  ≡⟨ cong (_I) ∘ can-t∘f {b} $ (can t) ⟩
+    b I
+  ∎
+
+f∘t-can : ∀ {n}
+  → from (to n) ≡ n
+  ----------
+  → Can (to n)
+f∘t-can {zero} x = can0
+f∘t-can {suc n} x with f∘t-can {n} (f∘t {n})
+... | cn = can-inc cn
+
+∃proj₁ : ∀ {a : Set} {b : a → Set} → ∃ b → a
+∃proj₁ ⟨ x , y ⟩ = x
+
+-- ⟨≡⟩ : ∀ {x y : Set} {z : x → Set} {w : y → Set} → x ≡ y → {!extensionality!} → _≡_ ⟨ x , z ⟩ ⟨ y , w ⟩
+-- ⟨≡⟩ e1 e2 = {!!}
+
+proj₁≡→Can≡ : ∀ {b : Bin} {c c′ : ∃[ b ] (Can b)} → ∃proj₁ c ≡ ∃proj₁ c′ → c ≡ c′
+proj₁≡→Can≡ {c = ⟨ ⟨⟩ , can () ⟩} {⟨ ⟨⟩ , can t ⟩} refl
+proj₁≡→Can≡ {c = ⟨ x O , cx ⟩} {⟨ .x O , cy ⟩} refl = cong (⟨_,_⟩ (x O)) $ ≡Can cx cy
+proj₁≡→Can≡ {c = ⟨ x I , cx ⟩} {⟨ .x I , cy ⟩} refl = cong (⟨_,_⟩ (x I)) $ ≡Can cx cy
+
+∃Can→ℕ : ∀ {b : Bin} → ∃[ b ] Can b → ℕ
+∃Can→ℕ ⟨ x , cx ⟩ = from x
+
+∃Can→ℕ→∃Can : ∀ {b : Bin} → (y : ∃[ b ] Can b)
+  → ⟨ to (∃Can→ℕ {b} y) , can-to {∃Can→ℕ {b} y} ⟩ ≡ y
+∃Can→ℕ→∃Can {b} ⟨ x , cx ⟩ = proj₁≡→Can≡ {b} (can-t∘f cx)
+
+ℕ≃∃Can : ∀ {b : Bin} → ℕ ≃ ∃[ b ] Can b
+ℕ≃∃Can {b} = record {
+  to = λ x → ⟨ (to x) , (can-to {x}) ⟩ ;
+  from = λ x → ∃Can→ℕ {b} x ;
+  from∘to = λ x → f∘t {x} ;
+  to∘from = ∃Can→ℕ→∃Can {b} }
 ```
 
 

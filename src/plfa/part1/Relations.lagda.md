@@ -16,7 +16,9 @@ the next step is to define relations, such as _less than or equal_.
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong)
 open import Data.Nat using (ℕ; zero; suc; _+_)
-open import Data.Nat.Properties using (+-comm; +-identityʳ)
+open import Data.Nat.Properties using (+-comm; +-identityʳ; +-assoc)
+
+-- open import plfa.part1.Naturals using (Bin)
 ```
 
 
@@ -553,6 +555,60 @@ Show that multiplication is monotonic with regard to inequality.
 
 ```agda
 -- Your code goes here
+_*_ : ∀ (m n : ℕ) → ℕ
+zero * n = zero
+suc m * n = n + m * n
+
+*-suc : ∀ (m n : ℕ) → m * suc n ≡ m + m * n
+*-suc zero n = refl
+*-suc (suc m) n rewrite (*-suc m n)
+  | Eq.sym (+-assoc n m (m * n))
+  | Eq.sym (+-assoc m n (m * n))
+  | +-comm m n
+  = refl
+
+*-zeroˡ : ∀ (m : ℕ) → m * 0 ≡ 0
+*-zeroˡ zero = refl
+*-zeroˡ (suc m) = *-zeroˡ m
+
+*-zeroʳ : ∀ (n : ℕ) → 0 * n ≡ 0
+*-zeroʳ zero = refl
+*-zeroʳ (suc n) = refl
+
+*-comm : ∀ (m n : ℕ) → m * n ≡ n * m
+*-comm m zero rewrite *-zeroˡ m = refl
+*-comm m (suc n) rewrite *-suc m n
+  | *-comm m n = refl
+
+*-monoˡ-≤ : ∀ (m n p : ℕ)
+  → m ≤ n
+  -------------
+  → m * p ≤ n * p
+*-monoˡ-≤ m n zero m≤n rewrite *-zeroˡ m = z≤n
+*-monoˡ-≤ m n (suc p) m≤n
+  rewrite *-suc m p
+  | *-suc n p
+  = ≤-trans (+-monoˡ-≤ m n (m * p) m≤n)
+      (+-monoʳ-≤ n (m * p) (n * p)
+        (*-monoˡ-≤ m n p m≤n))
+
+*-monoʳ-≤ : ∀ (m p q : ℕ)
+  → p ≤ q
+  -------------
+  → m * p ≤ m * q
+*-monoʳ-≤ zero p q p≤q = z≤n
+*-monoʳ-≤ (suc m) p q p≤q
+  = ≤-trans (+-monoˡ-≤ p q (m * p) p≤q)
+    (+-monoʳ-≤ q (m * p) (m * q) (*-monoʳ-≤ m p q p≤q))
+
+*-mono-≤ : ∀ (m n p q : ℕ)
+  → m ≤ n
+  → p ≤ q
+  -------------
+  → m * p ≤ n * q
+*-mono-≤ m n p q m≤n p≤q =
+  ≤-trans (*-monoˡ-≤ m n p m≤n)
+    (*-monoʳ-≤ n p q p≤q)
 ```
 
 
@@ -601,6 +657,9 @@ exercise exploits the relation between < and ≤.)
 
 ```agda
 -- Your code goes here
+<-trans : ∀ { m n p : ℕ } → m < n → n < p → m < p
+<-trans {n = suc n} {suc p} z<s (s<s n<p) = z<s
+<-trans {n = suc n} {suc p} (s<s m<n) (s<s n<p) = s<s (<-trans m<n n<p)
 ```
 
 #### Exercise `trichotomy` (practice) {#trichotomy}
@@ -619,6 +678,31 @@ similar to that used for totality.
 
 ```agda
 -- Your code goes here
+data Tricho (m n : ℕ) : Set where
+
+  ll :
+      m < n
+      ---------
+    → Tricho m n
+
+  eq :
+      m ≡ n
+      ---------
+    → Tricho m n
+
+  rr :
+      n < m
+      ---------
+    → Tricho m n
+
+trichotomy : ∀ ( m n : ℕ ) → Tricho m n
+trichotomy zero zero = eq refl
+trichotomy zero (suc n) = ll z<s
+trichotomy (suc m) zero = rr z<s
+trichotomy (suc m) (suc n) with trichotomy m n
+... | ll m<n = ll (s<s m<n)
+... | eq m=n = eq (cong suc m=n)
+... | rr n<m = rr (s<s n<m)
 ```
 
 #### Exercise `+-mono-<` (practice) {#plus-mono-less}
@@ -628,6 +712,26 @@ As with inequality, some additional definitions may be required.
 
 ```agda
 -- Your code goes here
++-monoˡ-< : ∀ { m n p : ℕ } → m < n → m + p < n + p
++-monoˡ-< {m} {n} {zero} m<n
+  rewrite +-comm m zero
+  | +-comm n zero = m<n
++-monoˡ-< {m} {n} {suc p} m<n
+  rewrite +-comm m (suc p)
+  | +-comm n (suc p)
+  | +-comm p m
+  | +-comm p n
+  = s<s (+-monoˡ-< m<n)
+
++-mono-< : ∀ { m n p q : ℕ } → m < n → p < q → m + p < n + q
++-mono-< {n = n} {p} {q} m<n p<q
+  = <-trans (+-monoˡ-< m<n) (n+p<n+q p<q)
+  where
+    n+p<n+q : ∀ { n p q : ℕ } → p < q → n + p < n + q
+    n+p<n+q {n} {p} {q} p<q
+      rewrite +-comm n q
+      | +-comm n p
+      = +-monoˡ-< p<q
 ```
 
 #### Exercise `≤→<, <→≤` (recommended) {#leq-iff-less}
@@ -636,6 +740,12 @@ Show that `suc m ≤ n` implies `m < n`, and conversely.
 
 ```agda
 -- Your code goes here
+s≤s→≤ : ∀ {p q : ℕ} → suc p ≤ suc q → p ≤ q
+s≤s→≤ (s≤s sp≤sq) = sp≤sq
+
+≤→< : ∀ { p q : ℕ } → p ≤ q → p < suc q
+≤→< {zero} p≤q = z<s
+≤→< {suc p} {suc q} p≤q = s<s (≤→< (s≤s→≤ p≤q))
 ```
 
 #### Exercise `<-trans-revisited` (practice) {#less-trans-revisited}
@@ -753,6 +863,8 @@ Show that the sum of two odd numbers is even.
 
 ```agda
 -- Your code goes here
+o+o≡e : {!!}
+o+o≡e = {!!}
 ```
 
 #### Exercise `Bin-predicates` (stretch) {#Bin-predicates}

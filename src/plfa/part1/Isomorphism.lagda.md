@@ -20,8 +20,8 @@ distributivity.
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong; cong-app)
 open Eq.≡-Reasoning
-open import Data.Nat using (ℕ; zero; suc; _+_)
-open import Data.Nat.Properties using (+-comm)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_)
+open import Data.Nat.Properties using (+-comm; +-assoc)
 ```
 
 
@@ -437,15 +437,23 @@ open ≲-Reasoning
 
 Show that every isomorphism implies an embedding.
 ```agda
-postulate
-  ≃-implies-≲ : ∀ {A B : Set}
-    → A ≃ B
-      -----
-    → A ≲ B
+-- postulate
+--   ≃-implies-≲ : ∀ {A B : Set}
+--     → A ≃ B
+--       -----
+--     → A ≲ B
 ```
 
 ```agda
 -- Your code goes here
+≃-implies-≲ : ∀ {A B : Set}
+  → A ≃ B
+    -----
+  → A ≲ B
+≃-implies-≲ {A} {B} A≃B = record {
+  to = _≃_.to A≃B ;
+  from = _≃_.from A≃B ;
+  from∘to = _≃_.from∘to A≃B }
 ```
 
 #### Exercise `_⇔_` (practice) {#iff}
@@ -461,6 +469,26 @@ Show that equivalence is reflexive, symmetric, and transitive.
 
 ```agda
 -- Your code goes here
+⇔-refl : ∀ {A : Set} → A ⇔ A
+⇔-refl =
+  record
+    { to      = λ z → z
+    ; from    = λ z → z
+    }
+
+⇔-sym : ∀ {A B : Set} → A ⇔ B → B ⇔ A
+⇔-sym A⇔B =
+  record
+    { to      = _⇔_.from A⇔B
+    ; from    = _⇔_.to A⇔B
+    }
+
+⇔-tran : ∀ {A B C : Set} → A ⇔ B → B ⇔ C → A ⇔ C
+⇔-tran A⇔B B⇔C =
+  record
+    { to      = λ x → _⇔_.to B⇔C (_⇔_.to A⇔B x)
+    ; from    = λ x → _⇔_.from A⇔B (_⇔_.from B⇔C x)
+    }
 ```
 
 #### Exercise `Bin-embedding` (stretch) {#Bin-embedding}
@@ -479,8 +507,54 @@ which satisfy the following property:
     from (to n) ≡ n
 
 Using the above, establish that there is an embedding of `ℕ` into `Bin`.
+
+import plfa.part1.Naturals as pNat
+
+  -- using (ℕ; Bin; to; from)
+  -- renaming (ℕ to bℕ ; to to bTo ; from to bFrom)
+
 ```agda
 -- Your code goes here
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+bInc : Bin → Bin
+bInc ⟨⟩ = ⟨⟩ I
+bInc (x O) = x I
+bInc (x I) = (bInc x) O
+
+bTo : ℕ → Bin
+bTo zero = ⟨⟩
+bTo (suc x) = bInc (bTo x)
+
+bFrom : Bin → ℕ
+bFrom ⟨⟩ = 0
+bFrom (x O) = 2 * bFrom x
+bFrom (x I) = 1 + 2 * bFrom x
+
+sym-bFrom-bInc : ∀ {n : Bin} → bFrom (bInc n) ≡ suc (bFrom n)
+sym-bFrom-bInc {⟨⟩} = refl
+sym-bFrom-bInc {n O} = refl
+sym-bFrom-bInc {n I} rewrite
+  sym-bFrom-bInc {n}
+  | +-comm (bFrom n) (suc (bFrom n + 0))
+  | +-assoc (bFrom n) 0 (bFrom n)
+  | +-comm (bFrom n) 0
+  = cong suc (cong suc refl)
+
+ℕ≲Bin : ℕ ≲ Bin
+ℕ≲Bin = record {
+  to = bTo ;
+  from = bFrom ;
+  from∘to = λ x → bFT {x} }
+  where
+    bFT : ∀ {n : ℕ} → bFrom (bTo n) ≡ n
+    bFT {zero} = refl
+    bFT {suc n} rewrite
+      sym-bFrom-bInc {bTo n}
+      = cong suc (bFT {n})
 ```
 
 Why do `to` and `from` not form an isomorphism?

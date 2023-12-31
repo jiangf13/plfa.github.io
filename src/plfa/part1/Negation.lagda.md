@@ -13,12 +13,21 @@ and classical logic.
 ## Imports
 
 ```agda
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-open import Data.Nat using (ℕ; zero; suc)
+import Relation.Binary.PropositionalEquality as Eq
+open Eq using (_≡_; refl; trans; sym; cong; cong-app; subst)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
+
+open import Data.Nat using (ℕ; zero; suc; _<_; s≤s; _>_; z≤n ; _≤_)
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
-open import Data.Product using (_×_)
-open import plfa.part1.Isomorphism using (_≃_; extensionality)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import plfa.part1.Isomorphism using (_≃_; extensionality; _≲_)
+
+open import Function using (const; _$_; _∘_; flip)
+  renaming (id to idd)
+open import Data.Bool using (true; false; not)
+  renaming (Bool to 𝔹)
+open import Level renaming (zero to lzero; suc to lsuc)
 ```
 
 
@@ -28,6 +37,7 @@ Given a proposition `A`, the negation `¬ A` holds if `A` cannot hold.
 We formalise this idea by declaring negation to be the same
 as implication of false:
 ```agda
+-- ¬_ : ∀ {ℓ} → Set ℓ → Set ℓ
 ¬_ : Set → Set
 ¬ A = A → ⊥
 ```
@@ -191,6 +201,9 @@ is irreflexive, that is, `n < n` holds for no `n`.
 
 ```agda
 -- Your code goes here
+<-irreflexive : ∀ {n : ℕ} → ¬ (n < n)
+<-irreflexive {zero} = λ ()
+<-irreflexive {suc n} (s≤s x) = <-irreflexive x
 ```
 
 
@@ -209,6 +222,58 @@ but that when one holds the negation of the other two must also hold.
 
 ```agda
 -- Your code goes here
+data Tri (m n : ℕ) : Set where
+  ls : m < n → Tri m n
+  eq : m ≡ n → Tri m n
+  gt : m > n → Tri m n
+
+_tri?_ : (m n : ℕ) → Tri m n
+zero tri? zero = eq refl
+zero tri? suc n = ls (s≤s z≤n)
+suc m tri? zero = gt (s≤s z≤n)
+suc m tri? suc n with m tri? n
+... | ls m<n = ls (s≤s m<n)
+... | eq m≡n = eq (cong suc m≡n)
+... | gt m>n = gt (s≤s m>n)
+
+<-≢ : ∀ {m} {n}
+  → m < n → m ≢ n
+<-≢ {m} {n} m<n m≡n = <-irreflexive (subst (_< n) m≡n m<n)
+<-¬> : ∀ {m} {n}
+  → m < n → ¬ (m > n)
+<-¬> {suc m} {suc n} (s≤s m<n) (s≤s m>n) = <-¬> m<n m>n
+tri< : ∀ {m} {n}
+  → m < n → (¬ (m ≡ n)) × (¬ (m > n))
+tri< {zero} {zero} ()
+tri< {zero} {suc n} (s≤s m<n) = (λ ()) , λ ()
+tri< {suc m} {zero} ()
+tri< {suc m} {suc n} m<n = <-≢ m<n , <-¬> m<n
+
+≢-sym : ∀ {A : Set} {a b : A}
+  → (a ≢ b) → (b ≢ a)
+≢-sym {a} {b} ¬m≡n n≡m = ¬m≡n (sym n≡m)
+tri> : ∀ {m} {n}
+  → m > n → (¬ (m ≡ n)) × (¬ (m < n))
+tri> {zero} {zero} ()
+tri> {zero} {suc n} ()
+tri> {suc m} {zero} m>n = (λ ()) , (λ ())
+tri> {suc m} {suc n} m>n = ≢-sym (<-≢ m>n)  , <-¬> m>n
+
+tri≡ : ∀ {m} {n}
+  → m ≡ n → (¬ (m < n)) × (¬ (m > n))
+tri≡ {zero} {zero} m≡n = (λ ()) , (λ ())
+tri≡ {zero} {suc n} ()
+tri≡ {suc m} {zero} ()
+tri≡ {suc m} {suc .m} refl = <-irreflexive {suc m} , <-irreflexive {suc m}
+
+trichotomy : ∀ {m} {n} →
+  m < n × (¬ (m ≡ n)) × (¬ (m > n)) ⊎
+  m ≡ n × (¬ (m < n)) × (¬ (m > n)) ⊎
+  m > n × (¬ (m ≡ n)) × (¬ (m < n))
+trichotomy {m} {n} with m tri? n
+... | ls m<n = inj₁ $ m<n , tri< m<n
+... | eq m≡n = inj₂ ∘ inj₁ $ m≡n , tri≡ m≡n
+... | gt m>n = inj₂ ∘ inj₂ $ m>n , tri> m>n
 ```
 
 #### Exercise `⊎-dual-×` (recommended)
@@ -222,8 +287,78 @@ This result is an easy consequence of something we've proved previously.
 
 ```agda
 -- Your code goes here
+de-morgan-to : ∀ {A B : Set} → ¬ (A ⊎ B) → (¬ A) × (¬ B)
+de-morgan-to ¬AB = (λ a → ¬AB ∘ inj₁ $ a) , (λ b → ¬AB ∘ inj₂ $ b)
+
+de-morgan-from : ∀ {A B : Set} → (¬ A) × (¬ B) → ¬ (A ⊎ B)
+de-morgan-from (¬A , ¬B) (inj₁ a) = ¬A a
+de-morgan-from (¬A , ¬B) (inj₂ b) = ¬B b
+
+de-morgan-from∘to : ∀ {A B : Set} → (x : ¬ (A ⊎ B)) → de-morgan-from (de-morgan-to x) ≡ x
+de-morgan-from∘to x = assimilation
+  (λ a⊎b → de-morgan-from ((λ z → x (inj₁ z)) , λ z → x (inj₂ z)) a⊎b) x
+
+de-morgan-to∘from : ∀ {A B : Set} → (x : (¬ A) × (¬ B)) → de-morgan-to (de-morgan-from x) ≡ x
+de-morgan-to∘from (¬A , ¬B) = refl
+
+de-morgan : ∀ {A B : Set} → ¬ (A ⊎ B) ≃ (¬ A) × (¬ B)
+de-morgan = record {
+  to = de-morgan-to ;
+  from = de-morgan-from ;
+  from∘to = de-morgan-from∘to ;
+  to∘from = de-morgan-to∘from }
+
+⊎-dual-×-from : ∀ {A B : Set} →  ¬ A × ¬ B → ¬ (A ⊎ B)
+⊎-dual-×-from (¬a , _) (inj₁ a) = ¬a a
+⊎-dual-×-from (_ , ¬b) (inj₂ b) = ¬b b
+
+⊎-dual-×-from∘to : ∀ {A B : Set} (x : ¬ (A ⊎ B)) → ⊎-dual-×-from ((λ a → x (inj₁ a)) , (λ b → x (inj₂ b))) ≡ x
+⊎-dual-×-from∘to x = extensionality (aux x)
+  where
+     aux : ∀ {A B : Set} (x : ¬ (A ⊎ B)) → (ab : A ⊎ B) →  ⊎-dual-×-from ((λ a → x (inj₁ a)) , (λ b → x (inj₂ b))) ab ≡ x ab
+     aux x (inj₁ a) = refl
+     aux x (inj₂ b) = refl
+
+⊎-dual-× : ∀ {A B : Set} → ¬ (A ⊎ B) ≃ (¬ A) × (¬ B)
+⊎-dual-× = record {
+  to = λ z → (λ x → z (inj₁ x)) , (λ x → z (inj₂ x));
+  from = ⊎-dual-×-from ;
+  from∘to = ⊎-dual-×-from∘to ;
+  to∘from = λ y → refl }
+
+ex-falso : ∀ {A : Set} → ⊥ → A
+ex-falso = λ ()
 ```
 
+¬-×-test : ∀ {A B : Set} → ¬ (A × B) → A → B
+¬-×-test x a = ex-falso (x (a , {!!}))
+
+¬-×-distri-to : ∀ {A B : Set} → ¬ (A × B) → ¬ A × ¬ B
+¬-×-distri-to ¬ab = (λ a → ¬ab (a , {!!})) , λ b → ¬ab ({! !} , b)
+¬-×-distri-from : ∀ {A B : Set} →  ¬ A × ¬ B → ¬ (A × B)
+¬-×-distri-from (¬a , ¬b) (a , _) = ¬a a
+-- ¬-×-distri- : ∀ {A B : Set} →
+-- ¬-×-distri- : ∀ {A B : Set} →
+
+¬-×-distri : ∀ {A B : Set} → (¬ (A × B)) ≃ (¬ A) × (¬ B)
+¬-×-distri = record {
+  to = {!!} ;
+  from = ¬-×-distri-from ;
+  from∘to = {!!} ;
+  to∘from = {!!} }
+
+⊎-embed-×-to : ∀ {A B : Set} → ¬ A ⊎ ¬ B → ¬ (A × B)
+⊎-embed-×-to (inj₁ ¬a) (a , _) = ¬a a
+⊎-embed-×-to (inj₂ ¬b) (_ , b)= ¬b b
+⊎-embed-×-from : ∀ {A B : Set} → ¬ (A × B) → ¬ A ⊎ ¬ B
+⊎-embed-×-from x = inj₁ (λ a → x (a , {!!}))
+-- ⊎-embed-×-from∘to : ∀ {A B : Set}
+
+⊎-embed-× : ∀ {A B : Set} → ((¬ A) ⊎ (¬ B)) ≲ (¬ (A × B))
+⊎-embed-× = record {
+  to = ⊎-embed-×-to ;
+  from = {!!} ;
+  from∘to = {!!} }
 
 Do we also have the following?
 
@@ -290,10 +425,13 @@ its negation is never provable):
 ```agda
 em-irrefutable : ∀ {A : Set} → ¬ ¬ (A ⊎ ¬ A)
 em-irrefutable = λ k → k (inj₂ (λ x → k (inj₁ x)))
+
+em-irrefutable′ : ∀ {A : Set} → ¬ ¬ (A ⊎ ¬ A)
+em-irrefutable′ k = k (inj₂ λ x → k (inj₁ x))
 ```
 The best way to explain this code is to develop it interactively:
 
-    em-irrefutable k = ?
+    em-irrefutable k = {!!}
 
 Given evidence `k` that `¬ (A ⊎ ¬ A)`, that is, a function that given a
 value of type `A ⊎ ¬ A` returns a value of the empty type, we must fill
@@ -301,12 +439,12 @@ in `?` with a term that returns a value of the empty type.  The only way
 we can get a value of the empty type is by applying `k` itself, so let's
 expand the hole accordingly:
 
-    em-irrefutable k = k ?
+    em-irrefutable k = k {!!}
 
 We need to fill the new hole with a value of type `A ⊎ ¬ A`. We don't have
 a value of type `A` to hand, so let's pick the second disjunct:
 
-    em-irrefutable k = k (inj₂ λ{ x → ? })
+    em-irrefutable k = k (inj₂ λ{ x → {!!} })
 
 The second disjunct accepts evidence of `¬ A`, that is, a function
 that given a value of type `A` returns a value of the empty type.  We
@@ -315,7 +453,7 @@ with a value of the empty type.  Once again, the only way we can get a
 value of the empty type is by applying `k` itself, so let's expand the
 hole accordingly:
 
-    em-irrefutable k = k (inj₂ λ{ x → k ? })
+    em-irrefutable k = k (inj₂ λ{ x → k {!!} })
 
 This time we do have a value of type `A` to hand, namely `x`, so we can
 pick the first disjunct:
@@ -377,8 +515,54 @@ Consider the following principles:
 
 Show that each of these implies all the others.
 
+e→d
+d→p
+p→i
+i→e
+
+e→m
+m→e
+
 ```agda
 -- Your code goes here
+exm = ∀ {A} → A ⊎ ¬ A
+¬¬ = ∀ {A} → ¬ ¬ A → A
+pl = ∀ {A B : Set} → ((A → B) → A) → A
+iad = ∀ {A B : Set} → (A → B) → (¬ A) ⊎ B
+dm = ∀ {A} {B} → ¬ (¬ A × ¬ B) → A ⊎ B
+
+em→¬¬ : exm → ¬¬
+em→¬¬ k x with idd k
+... | inj₁ f = f
+... | inj₂ g = ⊥-elim (x g)
+
+¬¬→pl : ¬¬ → pl
+¬¬→pl nn aba = nn λ na → na $ aba λ a → ⊥-elim $ na a
+
+-- pl = ∀ {A B : Set} → ((A → B) → A) → A
+-- iad = ∀ {A B : Set} → (A → B) → (¬ A) ⊎ B
+pl→iad : pl → iad
+pl→iad k ab = k $ λ x → inj₁ $ λ a → x ∘ inj₂ ∘ ab $ a
+
+⊎-swap : ∀ {A B : Set} → A ⊎ B → B ⊎ A
+⊎-swap (inj₁ x) = inj₂ x
+⊎-swap (inj₂ y) = inj₁ y
+iad→exm : iad → exm
+iad→exm k = ⊎-swap ∘ k $ idd
+
+dm→exm : dm → exm
+dm→exm k = k ff
+  where
+    ff : ∀ {A} → ¬ (¬ A × ¬ (¬ A))
+    ff (na , nna) = nna na
+
+exm-case : ∀ {A B : Set} → A ⊎ ¬ A → B ⊎ ¬ B → (A ⊎ ¬ A) × (B ⊎ ¬ B)
+exm-case x y = x , y
+exm→dm : exm → dm
+exm→dm x k with exm-case x x
+... | (inj₂ na , inj₂ nb) = ⊥-elim ∘ k $ na , nb
+... | (inj₁ a , _) = inj₁ a
+... | (_ , inj₁ b) = inj₂ b
 ```
 
 
@@ -394,6 +578,12 @@ of two stable formulas is stable.
 
 ```agda
 -- Your code goes here
+neg-IsStable : ∀ {A} → Stable (¬ A)
+neg-IsStable k a = ¬¬¬-elim k a
+
+⊎-IsStable : ∀ {A} {B} → Stable A → Stable B → Stable (A × B)
+⊎-IsStable stA stB k = (stA (λ na → k λ (a , b) → na a))
+  , (stB λ nb → k λ (a , b) → nb b)
 ```
 
 ## Standard Prelude

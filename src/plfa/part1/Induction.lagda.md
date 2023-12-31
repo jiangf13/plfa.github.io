@@ -21,12 +21,18 @@ _induction_.
 
 We require equality as in the previous chapter, plus the naturals
 and some operations upon them.  We also require a couple of new operations,
+
 `cong`, `sym`, and `_≡⟨_⟩_`, which are explained below:
 ```agda
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong; sym)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
-open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_;_^_)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_; _^_ )
+open import Data.Nat.Properties using (-- +-suc -- ; +-assoc
+  )
+
+open import Function using (_∘_; _$_)
+open import Data.List using ([]; [_]; _∷_; map; foldr)
 ```
 (Importing `step-≡` defines `_≡⟨_⟩_`.)
 
@@ -891,6 +897,12 @@ is associative and commutative.
 
 ```agda
 -- Your code goes here
++-swap : ∀ (m n p : ℕ) → m + (n + p) ≡ n + (m + p)
++-swap m n p rewrite sym (+-assoc m n p)
+  | sym (+-assoc n m p)
+  | +-comm n m
+  = refl
+-- +-swap m n p rewrite +-comm m n | +-assoc m n p = {!!}
 ```
 
 
@@ -904,6 +916,37 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+*-zero : ∀ (m : ℕ) → m * zero ≡ zero
+*-zero zero = refl
+*-zero (suc m) rewrite (*-zero m) = refl
+
+*-identity : ∀ (m : ℕ) → m * 1 ≡ m
+*-identity zero = refl
+*-identity (suc m) rewrite *-identity m = refl
+
+*-suc : ∀ (m n : ℕ) → m * suc n ≡ m + m * n
+*-suc zero n = refl
+*-suc (suc m) n
+  rewrite *-suc m n
+  | +-swap n m (m * n) = refl
+-- suc m * suc n ≡ suc m + suc m * n
+
+
+*-distrib-+ : ∀ (m n p : ℕ) → (m + n) * p ≡ m * p + n * p
+*-distrib-+ m n zero
+  rewrite *-zero (m + n)
+  | *-zero m
+  | *-zero n
+  = refl
+*-distrib-+ m n (suc p)
+  rewrite *-suc (m + n) p
+  | *-suc m p
+  | *-suc n p
+  | +-assoc m (m * p) (n + n * p)
+  | +-swap (m * p) n (n * p)
+  | sym (+-assoc m n (m * p + n * p))
+  | *-distrib-+ m n p
+  = refl
 ```
 
 
@@ -917,6 +960,12 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+*-assoc : ∀ (m n p : ℕ) → (m * n) * p ≡ m * (n * p)
+*-assoc zero n p = refl
+*-assoc (suc m) n p
+  rewrite *-suc m n
+  | *-distrib-+ n (m * n) p
+  | *-assoc m n p = refl
 ```
 
 
@@ -944,6 +993,9 @@ for all naturals `n`. Did your proof require induction?
 
 ```agda
 -- Your code goes here
+0∸n≡0 : ∀ (n : ℕ) → zero ∸ n ≡ zero
+0∸n≡0 zero = refl
+0∸n≡0 (suc n) = refl
 ```
 
 
@@ -957,6 +1009,14 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+∸-+-assoc : ∀ (m n p : ℕ) → m ∸ n ∸ p ≡ m ∸ (n + p)
+∸-+-assoc zero n p
+  rewrite 0∸n≡0 n
+  | 0∸n≡0 p
+  | 0∸n≡0 (n + p) = refl
+∸-+-assoc (suc m) zero p = refl
+∸-+-assoc (suc m) (suc n) p
+  rewrite ∸-+-assoc m n p = refl
 ```
 
 
@@ -997,8 +1057,156 @@ For each law: if it holds, prove; if not, give a counterexample.
 
 ```agda
 -- Your code goes here
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+inc : Bin → Bin
+inc ⟨⟩ = ⟨⟩ I
+inc (x O) = x I
+inc (x I) = (inc x) O
+
+_ : inc (⟨⟩ I O I I) ≡ ⟨⟩ I I O O
+_ = refl
+
+_ : inc (⟨⟩ O O O I) ≡ ⟨⟩ O O I O
+_ = refl
+
+to : ℕ → Bin
+to zero = ⟨⟩ O
+to (suc x) = inc (to x)
+
+from : Bin → ℕ
+from ⟨⟩ = 0
+from (x O) = 2 * from x
+from (x I) = 1 + 2 * from x
+
+_ : from (⟨⟩ O O O O) ≡ 0
+_ = refl
+
+suc-+-asso : ∀ {m n : ℕ} → m + suc n ≡ suc (m + n)
+suc-+-asso {zero} {n} = refl
+suc-+-asso {suc m} {n} = cong suc suc-+-asso
+
 ```
 
+Not provable.
+
+fi≡sf : ∀ {b : Bin} → from (inc b) ≡ suc (from b)
+fi≡sf {⟨⟩} = refl
+fi≡sf {b O} = {!!} -- refl
+fi≡sf {b I} rewrite fi≡sf {b} = {!!} -- cong suc (suc-+-asso {from b} {from b + 0})
+
+```agda
+_+ᵇ_ : Bin → Bin → Bin
+⟨⟩ +ᵇ b = b
+a +ᵇ ⟨⟩ = a
+(a O) +ᵇ (b O) = (a +ᵇ b) O
+(a O) +ᵇ (b I) = (a +ᵇ b) I
+(a I) +ᵇ (b O) = (a +ᵇ b) I
+(a I) +ᵇ (b I) = (inc (a +ᵇ b)) O
+
++ᵇ-identityʳ : ∀ {a : Bin} →  (a +ᵇ ⟨⟩) ≡ a
++ᵇ-identityʳ {⟨⟩} = refl
++ᵇ-identityʳ {a O} = refl
++ᵇ-identityʳ {a I} = refl
+
++ᵇ-comm : ∀ {a b : Bin} → a +ᵇ b ≡ b +ᵇ a
++ᵇ-comm {⟨⟩} {⟨⟩} = refl
++ᵇ-comm {⟨⟩} {b O} = refl
++ᵇ-comm {⟨⟩} {b I} = refl
++ᵇ-comm {a O} {⟨⟩} = refl
++ᵇ-comm {a O} {b O} rewrite +ᵇ-comm {a} {b} = refl
++ᵇ-comm {a O} {b I} rewrite +ᵇ-comm {a} {b} = refl
++ᵇ-comm {a I} {⟨⟩} = refl
++ᵇ-comm {a I} {b O} rewrite +ᵇ-comm {a} {b} = refl
++ᵇ-comm {a I} {b I} rewrite +ᵇ-comm {a} {b} = refl
+
+inc-dist-+ᵇ : ∀ {a b : Bin} → inc (a +ᵇ b) ≡ inc a +ᵇ b
+inc-dist-+ᵇ {⟨⟩} {⟨⟩} = refl
+inc-dist-+ᵇ {⟨⟩} {b O} = refl
+inc-dist-+ᵇ {⟨⟩} {b I} = refl
+inc-dist-+ᵇ {a O} {⟨⟩} = refl
+inc-dist-+ᵇ {a O} {b O} = refl
+inc-dist-+ᵇ {a O} {b I} = refl
+inc-dist-+ᵇ {a I} {⟨⟩} = refl
+inc-dist-+ᵇ {a I} {b O} = cong _O $ inc-dist-+ᵇ {a} {b}
+inc-dist-+ᵇ {a I} {b I} = cong _I $ inc-dist-+ᵇ {a} {b}
+
+```
+
+Not provable.
+
+to-dist-+ᵇ : ∀ {a b : ℕ} →  to (a + b) ≡ (to a) +ᵇ (to b)
+to-dist-+ᵇ {zero} {b} = {!!}
+to-dist-+ᵇ {suc a} {zero} rewrite +-identityʳ a = {!!} -- sym $ +ᵇ-identityʳ {inc $ to a}
+to-dist-+ᵇ {suc a} {suc b}
+  rewrite +-suc a b
+  | to-dist-+ᵇ {a} {b}
+  | inc-dist-+ᵇ {to a} {to b}
+  | +ᵇ-comm {inc $ to a} {to b}
+  | inc-dist-+ᵇ {to b} {inc $ to a}
+  = +ᵇ-comm {inc $ to b} {inc $ to a}
+
+```agda
+-- 2+ᵇ-O : ∀ {b : Bin} → b ≢ ⟨⟩ → b +ᵇ b ≡ b O
+-- 2+ᵇ-O {⟨⟩} = {!!}
+-- 2+ᵇ-O {b O} = {!!}
+-- 2+ᵇ-O {b I} = {!!}
+```
+
+Not provable
+
+t∘f : ∀ {b : Bin} → to (from b) ≡ b
+t∘f {⟨⟩} = {!!} -- refl
+t∘f {b O}
+  -- rewrite +-identityʳ (from b)
+  -- | to-dist-+ᵇ {from b} {from b}
+  -- | t∘f {b}
+  -- | fbfb≡2*fb {b}
+  = {!!}
+t∘f {b I} rewrite +-identityʳ (from b)
+  | t∘f {b}
+  = {!!}
+
+```agda
+from+from≡O : ∀ {b : Bin} → from b + from b ≡ (from (b O))
+from+from≡O {⟨⟩} = refl
+from+from≡O {b O} = begin
+    from (b O) + from (b O)
+  ≡⟨ (sym ∘ cong (λ x → from (b O) + x) $ +-identityʳ (from (b O))) ⟩
+    from (b O) + (from (b O) + 0)
+  ∎
+from+from≡O {b I} = sym ∘
+  cong (λ x → suc (from b + (from b + zero) + suc x))
+  $ +-identityʳ (from b + (from b + zero))
+
+fromO : ∀ {x : Bin} → from (x O) ≡ 2 * from x
+fromO {⟨⟩} = refl
+fromO {x O} = refl
+fromO {x I} = refl
+
+from∘inc≡suc∘from : ∀ {b : Bin} → from (inc b) ≡ suc (from b)
+from∘inc≡suc∘from {⟨⟩} = refl
+from∘inc≡suc∘from {b O} rewrite +-identityʳ (from b)
+  = refl
+from∘inc≡suc∘from {b I}
+  = begin
+    from (inc b O)
+  ≡⟨ fromO {inc b} ⟩
+    2 * (from (inc b))
+  ≡⟨ cong (2 *_) $ from∘inc≡suc∘from {b} ⟩
+    suc (from b + suc (from b + zero))
+  ≡⟨ cong suc $ +-suc (from b) (from b + 0) ⟩
+    suc (suc (from b + (from b + 0)))
+  ∎
+f∘t : ∀ {n : ℕ} → from (to n) ≡ n
+f∘t {zero} = refl
+f∘t {suc n} rewrite from∘inc≡suc∘from {to n} = cong suc $ f∘t {n}
+```
+
+⟨⟩ O ≡ O not provable.
 
 ## Standard library
 

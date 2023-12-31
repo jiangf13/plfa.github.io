@@ -386,6 +386,97 @@ regard to inequality.  Rewrite all of `+-monoˡ-≤`, `+-monoʳ-≤`, and `+-mon
 
 ```agda
 -- Your code goes here
+data _≤_ : ℕ → ℕ → Set where
+  z≤n : ∀ {x : ℕ} → zero ≤ x
+  s≤s : ∀ {x y : ℕ} → x ≤ y → suc x ≤ suc y
+
+≤-trans : ∀ {x y z : ℕ} → x ≤ y → y ≤ z → x ≤ z
+≤-trans z≤n y≤z = z≤n
+≤-trans (s≤s x≤y) (s≤s y≤z) = s≤s (≤-trans x≤y y≤z)
+
+≤-refl : ∀ {x : ℕ} → x ≤ x
+≤-refl {zero} = z≤n
+≤-refl {suc x} = s≤s ≤-refl
+
+≤-asym : ∀ {x y : ℕ} → x ≤ y → y ≤ x → x ≡ y
+≤-asym z≤n z≤n = refl
+≤-asym (s≤s x≤y) (s≤s y≤x) = cong suc (≤-asym x≤y y≤x)
+
+module ≤-Reasoning  where
+
+  infix  1 ≤begin_
+  infixr 2 _≤⟨⟩_ step-≤ step-≤-≡
+  infix  3 _≤∎
+
+  ≤begin_ : ∀ {x y : ℕ}
+    → x ≤ y
+      -----
+    → x ≤ y
+  ≤begin x≤y = x≤y
+
+  _≤⟨⟩_ : ∀ (x : ℕ) {y : ℕ}
+    → x ≤ y
+      -----
+    → x ≤ y
+  x ≤⟨⟩ x≤y  = x≤y
+
+  step-≤ : ∀ (x {y z} : ℕ) → y ≤ z → x ≤ y → x ≤ z
+  step-≤ x y≤z x≤y  =  ≤-trans x≤y y≤z
+
+  syntax step-≤ x y≤z x≤y  =  x ≤⟨ x≤y ⟩ y≤z
+
+  step-≤-≡ : ∀ (x {y z} : ℕ) → y ≤ z → x ≡ y → x ≤ z
+  step-≤-≡ x {z = z} y≤z x≡y = subst {ℕ} (_≤ z) (sym x≡y) y≤z
+
+  syntax step-≤-≡ x y≤z x≤y  =  x ≤≡⟨  x≤y ⟩ y≤z
+
+  _≤∎ : ∀ (x : ℕ)
+    → x ≤ x
+  x ≤∎ = ≤-refl
+
+open ≤-Reasoning
+
++-monoʳ-≤ : ∀ { n p q : ℕ } → p ≤ q → (n + p) ≤ (n + q)
++-monoʳ-≤ {zero} {p} {q} p≤q = ≤begin
+    zero + p
+  ≤⟨ p≤q ⟩
+    zero + q
+  ≤∎
++-monoʳ-≤ {suc n} {p} {q} p≤q = ≤begin
+    suc n + p
+  ≤⟨ s≤s (+-monoʳ-≤ p≤q) ⟩
+    suc n + q
+  ≤∎
+
++-monoˡ-≤ : ∀ { n p q : ℕ } → p ≤ q → (p + n) ≤ (q + n)
++-monoˡ-≤ {zero} {p} {q} p≤q = ≤begin
+    p + zero
+  ≤≡⟨ +-comm p zero ⟩
+    p
+  ≤⟨ p≤q ⟩
+    q
+  ≤≡⟨ sym (+-comm q zero) ⟩
+    q + zero
+  ≤∎
+
++-monoˡ-≤ {suc n} {p} {q} p≤q = ≤begin
+    p + suc n
+  ≤≡⟨ +-comm p (suc n) ⟩
+    suc n + p
+  ≤⟨ s≤s (+-monoʳ-≤ p≤q) ⟩
+    suc n + q
+  ≤≡⟨ +-comm (suc n) q ⟩
+    q + suc n
+  ≤∎
+
++-mono-≤ : ∀ { n m p q : ℕ } → n ≤ m → p ≤ q → (n + p) ≤ (m + q)
++-mono-≤ {n} {m} {p} {q} n≤m p≤q = ≤begin
+    n + p
+  ≤⟨ +-monoˡ-≤ n≤m ⟩
+    m + p
+  ≤⟨ +-monoʳ-≤ p≤q ⟩
+    m + q
+  ≤∎
 ```
 
 
