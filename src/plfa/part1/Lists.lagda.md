@@ -25,7 +25,9 @@ open import Relation.Nullary using (¬_; Dec; yes; no)
 open import Data.Product using (_×_; ∃; ∃-syntax) renaming (_,_ to ⟨_,_⟩)
 open import Function using (_∘_)
 open import Level using (Level)
-open import plfa.part1.Isomorphism using (_≃_; _⇔_)
+open import plfa.part1.Isomorphism using (_≃_; _⇔_; extensionality)
+
+open import Function using (_$_; _∘_)
 ```
 
 
@@ -62,8 +64,8 @@ As we've seen, parameterised types can be translated to
 indexed types. The definition above is equivalent to the following:
 ```agda
 data List′ : Set → Set where
-  []′  : ∀ {A : Set} → List′ A
-  _∷′_ : ∀ {A : Set} → A → List′ A → List′ A
+--   []′  : ∀ {A : Set} → List′ A
+--   _∷′_ : ∀ {A : Set} → A → List′ A → List′ A
 ```
 Each constructor takes the parameter as an implicit argument.
 Thus, our example list could also be written:
@@ -352,6 +354,12 @@ reverse of the second appended to the reverse of the first:
 
 ```agda
 -- Your code goes here
+reverse-++-distrib : ∀ {A : Set} ( xs ys : List A )
+  → reverse (xs ++ ys) ≡ reverse ys ++ reverse xs
+reverse-++-distrib [] ys = sym ∘ ++-identityʳ $ reverse ys
+reverse-++-distrib ( x ∷ xs ) ys
+  rewrite cong (λ ts → ts ++ [ x ]) $ reverse-++-distrib xs ys
+  = ++-assoc (reverse ys) (reverse xs) [ x ]
 ```
 
 
@@ -364,6 +372,12 @@ as the identity function.  Show that reverse is an involution:
 
 ```agda
 -- Your code goes here
+reverse-involution : ∀ {A : Set} ( xs : List A )
+  → reverse (reverse xs) ≡ xs
+reverse-involution [] = refl
+reverse-involution (x ∷ xs)
+  rewrite reverse-++-distrib ( reverse xs ) ( [ x ] )
+  | reverse-involution ( xs ) = refl
 ```
 
 
@@ -534,6 +548,12 @@ The last step of the proof requires extensionality.
 
 ```agda
 -- Your code goes here
+map-compose-xs : ∀ {A B C : Set} ( g : B → C ) ( f : A → B ) ( xs : List A )
+  → map (g ∘ f) xs ≡ (map g ∘ map f) xs
+map-compose-xs g f [] = refl
+map-compose-xs g f (x ∷ xs) = cong ((g ∘ f $ x ) ∷_) (map-compose-xs g f xs)
+map-compose : ∀ {A B C : Set} ( g : B → C ) ( f : A → B ) → map (g ∘ f) ≡ map g ∘ map f
+map-compose g f = extensionality $ map-compose-xs g f
 ```
 
 #### Exercise `map-++-distribute` (practice)
@@ -544,6 +564,11 @@ Prove the following relationship between map and append:
 
 ```agda
 -- Your code goes here
+map-++-distribute : ∀ {A B : Set} ( f : A → B ) ( xs ys : List A )
+  → map f (xs ++ ys) ≡ map f xs ++ map f ys
+map-++-distribute f [] ys = refl
+map-++-distribute f (x ∷ xs) ys = cong (f x ∷_) $
+  map-++-distribute f xs ys
 ```
 
 #### Exercise `map-Tree` (practice)
@@ -560,7 +585,11 @@ Define a suitable map operator over trees:
     map-Tree : ∀ {A B C D : Set} → (A → C) → (B → D) → Tree A B → Tree C D
 
 ```agda
--- Your code goes here
+-- Your code goes her
+map-Tree : ∀ {A B C D : Set} → (A → C) → (B → D) → Tree A B → Tree C D
+map-Tree f g (leaf x) = leaf $ f x
+map-Tree f g (node tl x tr) = let mapf = map-Tree f g
+  in node (mapf tl) (g x) (mapf tr)
 ```
 
 ## Fold {#Fold}
@@ -643,6 +672,8 @@ For example:
 
 ```agda
 -- Your code goes here
+product : List ℕ → ℕ
+product = foldr _*_ 1
 ```
 
 #### Exercise `foldr-++` (recommended)
@@ -653,6 +684,10 @@ Show that fold and append are related as follows:
 
 ```agda
 -- Your code goes here
+foldr-++ : ∀ {A B : Set} (_⊗_ : A → B → B) ( e : B ) ( xs ys : List A )
+  → foldr _⊗_ e (xs ++ ys) ≡ foldr _⊗_ (foldr _⊗_ e ys) xs
+foldr-++ f e [] ys = refl
+foldr-++ f e (x ∷ xs) ys = cong (f x) $ foldr-++ f e xs ys
 ```
 
 #### Exercise `foldr-∷` (practice)
@@ -668,6 +703,26 @@ Show as a consequence of `foldr-++` above that
 
 ```agda
 -- Your code goes here
+foldr-∷[] : ∀ {A : Set} (xs : List A)
+  → foldr _∷_ [] xs ≡ xs
+foldr-∷[] [] = refl
+foldr-∷[] (x ∷ xs) = cong (x ∷_) $ foldr-∷[] xs
+
+foldr-∷ : ∀ {A : Set} (xs ys : List A)
+  → xs ++ ys ≡ foldr _∷_ ys xs
+foldr-∷ xs ys
+--  rewrite sym ∘ foldr-∷[] $ xs ++ ys
+--    | foldr-++ _∷_ [] xs ys
+--    | cong (λ ys → foldr _∷_ ys xs) $ foldr-∷[] ys
+  = begin
+    xs ++ ys
+  ≡⟨ sym ∘ foldr-∷[] $ xs ++ ys ⟩
+    foldr _∷_ [] (xs ++ ys)
+  ≡⟨ foldr-++ _∷_ [] xs ys ⟩
+    foldr _∷_ (foldr _∷_ [] ys) xs
+  ≡⟨ cong (λ ys → foldr _∷_ ys xs) $ foldr-∷[] ys ⟩
+    foldr _∷_ ys xs
+  ∎
 ```
 
 #### Exercise `map-is-foldr` (practice)
@@ -680,6 +735,14 @@ The proof requires extensionality.
 
 ```agda
 -- Your code goes here
+map-is-foldr-xs : ∀ {A B : Set} ( f : A → B ) (xs : List A)
+  → map f xs ≡ foldr (λ x xs → f x ∷ xs) [] xs
+map-is-foldr-xs f [] = refl
+map-is-foldr-xs f (x ∷ xs) = cong (f x ∷_) $ map-is-foldr-xs f xs
+
+map-is-foldr : ∀ {A B : Set} ( f : A → B )
+  → map f ≡ foldr (λ x xs → f x ∷ xs) []
+map-is-foldr f = extensionality (map-is-foldr-xs f)
 ```
 
 #### Exercise `fold-Tree` (practice)
@@ -691,6 +754,11 @@ Define a suitable fold function for the type of trees given earlier:
 
 ```agda
 -- Your code goes here
+fold-Tree : ∀ {A B C : Set} → (A → C) → (C → B → C → C) → Tree A B → C
+fold-Tree f g (leaf x) = f x
+fold-Tree f g (node tl x tr) = let
+  fTree = fold-Tree f g
+  in g (fTree tl) x (fTree tr)
 ```
 
 #### Exercise `map-is-fold-Tree` (practice)
@@ -699,6 +767,16 @@ Demonstrate an analogue of `map-is-foldr` for the type of trees.
 
 ```agda
 -- Your code goes here
+map-is-fold-Tree-nl : ∀ {A B C D : Set} (f : A → C) (g : B → D) (t : Tree A B)
+  → (map-Tree f g t) ≡ (fold-Tree (λ x → leaf (f x)) λ l x r → node l (g x) r) t
+map-is-fold-Tree-nl f g (leaf x) = refl
+map-is-fold-Tree-nl f g (node l x r) rewrite sym (map-is-fold-Tree-nl f g l)
+  | sym (map-is-fold-Tree-nl f g r)
+  = refl
+
+map-is-fold-Tree : ∀ {A B C D : Set} (f : A → C) (g : B → D)
+  → (map-Tree f g) ≡ (fold-Tree (λ x → leaf (f x)) λ l x r → node l (g x) r)
+map-is-fold-Tree f g = extensionality (map-is-fold-Tree-nl f g)
 ```
 
 #### Exercise `sum-downFrom` (stretch)
@@ -721,6 +799,8 @@ equal to `n * (n ∸ 1) / 2`:
 
 ```agda
 -- Your code goes here
+sum-downFrom : ( n : ℕ ) → sum (downFrom n) * 2 ≡ n * (n ∸ 1)
+sum-downFrom n = {!!}
 ```
 
 ## Monoids
@@ -799,9 +879,9 @@ foldr-monoid _⊗_ e ⊗-monoid (x ∷ xs) y =
 
 In a previous exercise we showed the following.
 ```agda
-postulate
-  foldr-++ : ∀ {A : Set} (_⊗_ : A → A → A) (e : A) (xs ys : List A) →
-    foldr _⊗_ e (xs ++ ys) ≡ foldr _⊗_ (foldr _⊗_ e ys) xs
+-- postulate
+--   foldr-++ : ∀ {A : Set} (_⊗_ : A → A → A) (e : A) (xs ys : List A) →
+--     foldr _⊗_ e (xs ++ ys) ≡ foldr _⊗_ (foldr _⊗_ e ys) xs
 ```
 
 As a consequence we can decompose fold over append in a monoid
