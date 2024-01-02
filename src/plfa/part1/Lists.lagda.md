@@ -23,12 +23,13 @@ open import Data.Nat.Properties using
   (+-assoc; +-identityˡ; +-identityʳ; *-assoc; *-identityˡ; *-identityʳ; *-distribʳ-+
   ; *-distribˡ-+; +-comm; +-suc; *-suc)
 open import Relation.Nullary using (¬_; Dec; yes; no)
-open import Data.Product using (_×_; ∃; ∃-syntax) renaming (_,_ to ⟨_,_⟩)
+open import Data.Product using (_×_; ∃; ∃-syntax; proj₁; proj₂) renaming (_,_ to ⟨_,_⟩)
 open import Function using (_∘_)
 open import Level using (Level)
 open import plfa.part1.Isomorphism using (_≃_; _⇔_; extensionality)
 
 open import Function using (_$_; _∘_)
+open import Data.Sum using (_⊎_; inj₁; inj₂)
 ```
 
 
@@ -1076,6 +1077,33 @@ replacement for `_×_`.  As a consequence, demonstrate an equivalence relating
 
 ```agda
 -- Your code goes here
+Any-++-⇔ : ∀ {A : Set} {P : A → Set} (xs ys : List A) →
+  Any P (xs ++ ys) ⇔ (Any P xs ⊎ Any P ys)
+Any-++-⇔ xs ys = record {
+  to = to xs ys ;
+  from = from xs ys }
+  where
+  to : ∀ {A : Set} {P : A → Set} (xs ys : List A)
+    → Any P (xs ++ ys) → Any P xs ⊎ Any P ys
+  to [] ys Pys = inj₂ Pys
+  to (x ∷ xs) ys (here Px) = inj₁ (here Px)
+  to (x ∷ xs) ys (there Pxy) with to xs ys Pxy
+  ... | inj₁ Pxs = inj₁ (there Pxs)
+  ... | inj₂ Pys = inj₂ Pys
+  from : ∀ {A : Set} {P : A → Set} (xs ys : List A)
+    → Any P xs ⊎ Any P ys → Any P (xs ++ ys)
+  from [] ys (inj₂ y) = y
+  from (x ∷ xs) ys (inj₁ (here p)) = here p
+  from (x ∷ xs) ys (inj₁ (there p)) with from xs ys (inj₁ p)
+  ... | d = there d
+  from (x ∷ xs) ys (inj₂ p) with from xs ys (inj₂ p)
+  ... | d = there d
+
+∈-++-⇔ : ∀ {A : Set} { x : A } (xs ys : List A) →
+  ((x ∈ xs) ⊎ (x ∈ ys)) ⇔ (x ∈ (xs ++ ys))
+∈-++-⇔ xs ys = record {
+  to = λ i → _⇔_.from (Any-++-⇔ xs ys) i ;
+  from = _⇔_.to (Any-++-⇔ xs ys) }
 ```
 
 #### Exercise `All-++-≃` (stretch)
@@ -1084,6 +1112,46 @@ Show that the equivalence `All-++-⇔` can be extended to an isomorphism.
 
 ```agda
 -- Your code goes here
+All-++-≃ : ∀ {A : Set} {P : A → Set} (xs ys : List A) →
+  All P (xs ++ ys) ≃ (All P xs × All P ys)
+All-++-≃ xs ys = record {
+  to = _⇔_.to (All-++-⇔ xs ys) ;
+  from = _⇔_.from (All-++-⇔ xs ys) ;
+  from∘to = from∘to xs ys ;
+  to∘from = to∘from xs ys }
+  where
+  from∘to : ∀ {A : Set} {P : A → Set} (xs ys : List A) (ap : All P (xs ++ ys)) →
+    _⇔_.from (All-++-⇔ xs ys) (_⇔_.to (All-++-⇔ xs ys) ap) ≡ ap
+  from∘to [] ys ap = refl
+  from∘to (x ∷ xs) ys (a ∷ ap) = cong (a ∷_) $ from∘to xs ys ap
+  proj₁-to : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P (xs ++ ys)) (px : All P xs) →
+    proj₁ (_⇔_.to (All-++-⇔ xs ys) xy) ≡ px
+  proj₁-to [] ys xy [] = refl
+  proj₁-to (x ∷ xs) ys xy (p ∷ px) = {!!}
+  proj₂-to : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P (xs ++ ys)) (py : All P ys) →
+    proj₂ (_⇔_.to (All-++-⇔ xs ys) xy) ≡ py
+  proj₂-to = {!!}
+
+  proj₁-from = {!!}
+  proj₂-from = {!!}
+
+  to∘from : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P xs × All P ys ) →
+    _⇔_.to (All-++-⇔ xs ys) (_⇔_.from (All-++-⇔ xs ys) xy) ≡ xy
+  to∘from [] ys ⟨ [] , py ⟩ = refl
+  to∘from (x ∷ xs) ys ⟨ p ∷ px , py ⟩
+    -- rewrite  refl
+    = let
+      fs = _⇔_.from (All-++-⇔ xs ys) ⟨ px , py ⟩
+      ⟨ tx , ty ⟩ = _⇔_.to (All-++-⇔ xs ys) fs
+    in begin
+      _⇔_.to (All-++-⇔ (x ∷ xs) ys) (_⇔_.from (All-++-⇔ (x ∷ xs) ys) ⟨ p ∷ px , py ⟩)
+    ≡⟨ refl ⟩
+      ⟨ p ∷ tx , ty ⟩
+    ≡⟨ cong (λ x → ⟨ p ∷ x , ty ⟩) {!!} ⟩
+      ⟨ p ∷ px , ty ⟩
+    ≡⟨ cong (λ x → ⟨ p ∷ px , x ⟩) {!!} ⟩
+     ⟨ p ∷ px , py ⟩
+    ∎
 ```
 
 #### Exercise `¬Any⇔All¬` (recommended)
