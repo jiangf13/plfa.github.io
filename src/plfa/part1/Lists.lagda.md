@@ -20,7 +20,8 @@ open Eq.≡-Reasoning
 open import Data.Bool using (Bool; true; false; T; _∧_; _∨_; not)
 open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_; _≤_; s≤s; z≤n)
 open import Data.Nat.Properties using
-  (+-assoc; +-identityˡ; +-identityʳ; *-assoc; *-identityˡ; *-identityʳ; *-distribʳ-+)
+  (+-assoc; +-identityˡ; +-identityʳ; *-assoc; *-identityˡ; *-identityʳ; *-distribʳ-+
+  ; *-distribˡ-+; +-comm; +-suc; *-suc)
 open import Relation.Nullary using (¬_; Dec; yes; no)
 open import Data.Product using (_×_; ∃; ∃-syntax) renaming (_,_ to ⟨_,_⟩)
 open import Function using (_∘_)
@@ -799,8 +800,27 @@ equal to `n * (n ∸ 1) / 2`:
 
 ```agda
 -- Your code goes here
+calc-sdF : (n : ℕ) → n * 2 + n * (n ∸ 1) ≡ n + n * n
+calc-sdF zero = refl
+calc-sdF (suc n) rewrite +-suc n (n + n * suc n)
+  | *-suc n n
+  | *-distribˡ-+ n 1 1
+  | *-identityʳ n
+  | +-assoc n n (n + n * n)
+  = refl
+
 sum-downFrom : ( n : ℕ ) → sum (downFrom n) * 2 ≡ n * (n ∸ 1)
-sum-downFrom n = {!!}
+sum-downFrom zero = refl
+sum-downFrom (suc n) =
+  begin
+    (n + sum (downFrom n)) * 2
+  ≡⟨ *-distribʳ-+ 2 n $ sum (downFrom n) ⟩
+    n * 2 + sum (downFrom n) * 2
+  ≡⟨ cong (λ x → n * 2 + x) $ sum-downFrom n ⟩
+    n * 2 + n * (n ∸ 1)
+  ≡⟨ calc-sdF n ⟩
+    n + n * n
+  ∎
 ```
 
 ## Monoids
@@ -909,6 +929,9 @@ operations associate to the left rather than the right.  For example:
 
 ```agda
 -- Your code goes here
+foldl : ∀ {A B : Set} → (B → A → B) → B → List A → B
+foldl _ e [] = e
+foldl _⊗_ e (x ∷ xs) = foldl _⊗_ (e ⊗ x) xs
 ```
 
 
@@ -919,6 +942,22 @@ Show that if `_⊗_` and `e` form a monoid, then `foldr _⊗_ e` and
 
 ```agda
 -- Your code goes here
+foldl-monoid : ∀ {A : Set} (_⊗_ : A → A → A) (e : A) → IsMonoid _⊗_ e →
+  ∀ (xs : List A) (y : A) → foldl _⊗_ y xs ≡ y ⊗ foldl _⊗_ e xs
+foldl-monoid _⊗_ e ⊗-monoid [] y = sym $ IsMonoid.identityʳ ⊗-monoid y
+foldl-monoid _⊗_ e ⊗-monoid (x ∷ xs) y
+  rewrite foldl-monoid _⊗_ e ⊗-monoid xs (y ⊗ x)
+    | IsMonoid.identityˡ ⊗-monoid x
+    | foldl-monoid _⊗_ e ⊗-monoid xs x
+  = assoc ⊗-monoid y x (foldl _⊗_ e xs)
+
+foldr-monoid-foldl-xs : ∀ {A : Set} (_⊗_ : A → A → A) (e : A) → IsMonoid _⊗_ e →
+  ∀ (xs : List A) → foldr _⊗_ e xs ≡ foldl _⊗_ e xs
+foldr-monoid-foldl-xs _⊗_ e ⊗-monoid [] = refl
+foldr-monoid-foldl-xs _⊗_ e ⊗-monoid (x ∷ xs)
+  rewrite foldr-monoid-foldl-xs _⊗_ e ⊗-monoid xs
+    | IsMonoid.identityˡ ⊗-monoid x
+  = sym $ foldl-monoid _⊗_ e ⊗-monoid xs x
 ```
 
 
