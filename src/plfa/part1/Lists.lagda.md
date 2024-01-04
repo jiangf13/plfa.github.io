@@ -22,14 +22,15 @@ open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_; _≤_; s≤s; z≤n
 open import Data.Nat.Properties using
   (+-assoc; +-identityˡ; +-identityʳ; *-assoc; *-identityˡ; *-identityʳ; *-distribʳ-+
   ; *-distribˡ-+; +-comm; +-suc; *-suc)
-open import Relation.Nullary using (¬_; Dec; yes; no)
+open import Relation.Nullary using (¬_; Dec; yes; no; does; _because_)
 open import Data.Product using (_×_; ∃; ∃-syntax; proj₁; proj₂) renaming (_,_ to ⟨_,_⟩)
 open import Function using (_∘_)
 open import Level using (Level)
-open import plfa.part1.Isomorphism using (_≃_; _⇔_; extensionality)
+open import plfa.part1.Isomorphism using (_≃_; _⇔_; extensionality; ∀-extensionality)
 
 open import Function using (_$_; _∘_)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
+open import Data.Empty using (⊥-elim)
 ```
 
 
@@ -1124,16 +1125,6 @@ All-++-≃ xs ys = record {
     _⇔_.from (All-++-⇔ xs ys) (_⇔_.to (All-++-⇔ xs ys) ap) ≡ ap
   from∘to [] ys ap = refl
   from∘to (x ∷ xs) ys (a ∷ ap) = cong (a ∷_) $ from∘to xs ys ap
-  proj₁-to : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P (xs ++ ys)) (px : All P xs) →
-    proj₁ (_⇔_.to (All-++-⇔ xs ys) xy) ≡ px
-  proj₁-to [] ys xy [] = refl
-  proj₁-to (x ∷ xs) ys xy (p ∷ px) = {!!}
-  proj₂-to : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P (xs ++ ys)) (py : All P ys) →
-    proj₂ (_⇔_.to (All-++-⇔ xs ys) xy) ≡ py
-  proj₂-to = {!!}
-
-  proj₁-from = {!!}
-  proj₂-from = {!!}
 
   to∘from : ∀ {A : Set} {P : A → Set} (xs ys : List A) (xy : All P xs × All P ys ) →
     _⇔_.to (All-++-⇔ xs ys) (_⇔_.from (All-++-⇔ xs ys) xy) ≡ xy
@@ -1147,9 +1138,9 @@ All-++-≃ xs ys = record {
       _⇔_.to (All-++-⇔ (x ∷ xs) ys) (_⇔_.from (All-++-⇔ (x ∷ xs) ys) ⟨ p ∷ px , py ⟩)
     ≡⟨ refl ⟩
       ⟨ p ∷ tx , ty ⟩
-    ≡⟨ cong (λ x → ⟨ p ∷ x , ty ⟩) {!!} ⟩
+    ≡⟨ cong (λ x → ⟨ p ∷ x , ty ⟩) ∘ cong proj₁ $ to∘from xs ys ⟨ px , py ⟩ ⟩
       ⟨ p ∷ px , ty ⟩
-    ≡⟨ cong (λ x → ⟨ p ∷ px , x ⟩) {!!} ⟩
+    ≡⟨ cong (λ x → ⟨ p ∷ px , x ⟩) ∘ cong proj₂ $ to∘from xs ys ⟨ px , py ⟩ ⟩
      ⟨ p ∷ px , py ⟩
     ∎
 ```
@@ -1173,7 +1164,43 @@ If so, prove; if not, explain why.
 
 ```agda
 -- Your code goes here
+¬Any⇔All¬ : ∀ {A} ( P : A → Set ) ( xs : List A )
+  → (¬_ ∘ Any P) xs ⇔ All (¬_ ∘ P) xs
+¬Any⇔All¬ p xs = record {
+  to = to p xs ;
+  from = from p xs }
+  where
+  to : ∀ {A} ( P : A → Set ) ( xs : List A )
+    → (¬_ ∘ Any P) xs → All (¬_ ∘ P) xs
+  to p [] n = []
+  to p (a ∷ as) n = (λ pa → n (here pa)) ∷ to p as λ ps → n (there ps)
+  from : ∀ {A} ( P : A → Set ) ( xs : List A )
+    → All (¬_ ∘ P) xs → (¬_ ∘ Any P) xs
+  from p [] [] ()
+  from p (x ∷ xs) (n ∷ nx) (here px) = n px
+  from p (x ∷ xs) (n ∷ nx) (there px) = from p xs nx px
+
+data is0 : ℕ → Set where
+  oo : is0 0
+
+DecIs0 : (n : ℕ) → Dec (is0 n)
+DecIs0 zero = yes oo
+DecIs0 (suc n) = no (λ ())
+
+Is0 : ∀ {n} → Dec (is0 n) → (is0 n) ⊎ ¬ (is0 n)
+Is0 (yes x) = inj₁ x
+Is0 (no ¬p) = inj₂ ¬p
+
+data DecAny {A : Set}  ( P : A → Set ) : List A → Set where
+  dHere  : ∀ {x : A} {xs : List A} → (P x) → DecAny P (x ∷ xs)
+  dThere : ∀ {x : A} {xs : List A} → DecAny P xs → DecAny P (x ∷ xs)
+
+data DecAll {A : Set} (P : A → Set) : List A → Set where
+  d[]  : DecAll P []
+  _d∷_ : ∀ {x : A} {xs : List A} → P x → DecAll P xs → DecAll P (x ∷ xs)
 ```
+
+We don′t know whether `p x` is ⊥ or not. We can use Dec if possible.
 
 #### Exercise `¬Any≃All¬` (stretch)
 
@@ -1182,6 +1209,64 @@ You will need to use extensionality.
 
 ```agda
 -- Your code goes here
+¬Any≃All¬ : ∀ {A} ( P : A → Set ) ( xs : List A )
+  → (¬_ ∘ Any P) xs ≃ All (¬_ ∘ P) xs
+¬Any≃All¬ p xs = record {
+  to = _⇔_.to (¬Any⇔All¬ p xs) ;
+  from = _⇔_.from (¬Any⇔All¬ p xs) ;
+  from∘to = from∘to p xs ;
+  to∘from = to∘from p xs }
+  where
+  from∘to-apx : ∀ {A} ( P : A → Set ) ( xs : List A ) (¬apx : ¬_ ∘ Any P $ xs) (apx : Any P xs) →
+              _⇔_.from (¬Any⇔All¬ P xs) (_⇔_.to (¬Any⇔All¬ P xs) ¬apx) apx ≡
+              ¬apx apx
+  from∘to-apx _ [] _ ()
+  from∘to-apx _ (_ ∷ _) _ (here _) = refl
+  from∘to-apx p xxs@(x ∷ xs) ¬apxs apxs@(there apx) = let
+      ¬px : ¬ (p x)
+      ¬px = ¬apxs ∘ here
+      ¬apx : ¬ (Any p xs)
+      ¬apx = ¬apxs ∘ there
+    in begin
+      _⇔_.from (¬Any⇔All¬ p xxs) (_⇔_.to (¬Any⇔All¬ p xxs) ¬apxs) apxs
+    ≡⟨⟩
+      _⇔_.from (¬Any⇔All¬ p xxs)
+        (¬px ∷ _⇔_.to (¬Any⇔All¬ p xs) ¬apx)
+        apxs
+    ≡⟨⟩
+      (_⇔_.from (¬Any⇔All¬ p xs)
+      (_⇔_.to (¬Any⇔All¬ p xs) ¬apx)
+        apx)
+    ≡⟨ from∘to-apx p xs ¬apx apx ⟩
+      ¬apx apx
+    ≡⟨⟩
+      ¬apxs apxs
+    ∎
+
+  from∘to : ∀ {A} ( P : A → Set ) ( xs : List A ) (¬apx : ¬_ ∘ Any P $ xs) →
+              _⇔_.from (¬Any⇔All¬ P xs) (_⇔_.to (¬Any⇔All¬ P xs) ¬apx) ≡
+              ¬apx
+  from∘to p xs ¬apx = extensionality (from∘to-apx p xs ¬apx)
+
+  to∘from : ∀ {A} ( P : A → Set ) ( xs : List A ) (a¬px : All (¬_ ∘ P) xs) →
+              _⇔_.to (¬Any⇔All¬ P xs) (_⇔_.from (¬Any⇔All¬ P xs) a¬px) ≡
+              a¬px
+  to∘from _ _ [] = refl
+  to∘from p xxs@(x ∷ xs) a¬pxs@(¬px ∷ a¬px) = begin
+       _⇔_.to (¬Any⇔All¬ p xxs)
+       (_⇔_.from (¬Any⇔All¬ p xxs) a¬pxs)
+    ≡⟨⟩
+       _⇔_.to (¬Any⇔All¬ p xxs)
+       (λ { (here px) → ¬px px ;
+         (there apx) → _⇔_.from (¬Any⇔All¬ p xs) a¬px apx })
+    ≡⟨⟩
+       (λ px → ¬px px)
+       ∷ _⇔_.to (¬Any⇔All¬ p xs) (λ apx → _⇔_.from (¬Any⇔All¬ p xs) a¬px apx)
+    ≡⟨ cong ((λ px → ¬px px) ∷_) $ to∘from p xs a¬px ⟩
+       (λ px → ¬px px) ∷ a¬px
+    ≡⟨⟩
+       a¬pxs
+    ∎
 ```
 
 #### Exercise `All-∀` (practice)
@@ -1190,6 +1275,48 @@ Show that `All P xs` is isomorphic to `∀ x → x ∈ xs → P x`.
 
 ```agda
 -- You code goes here
+All-∀ : ∀ {A} ( P : A → Set ) ( xs : List A )
+  → All P xs ≃ (∀ x → x ∈ xs → P x)
+All-∀ p xs = record {
+  to = to p xs ;
+  from = from p xs ;
+  from∘to = from∘to p xs ;
+  to∘from = to∘from p xs }
+  where
+  to : ∀ {A} ( P : A → Set ) ( xs : List A )
+    → All P xs → (∀ x → x ∈ xs → P x)
+  to p (x ∷ xs) (px ∷ apx) .x (here refl) = px
+  to p (x ∷ xs) (px ∷ apx) a (there j) = to p xs apx a j
+  from : ∀ {A} ( P : A → Set ) ( xs : List A )
+    → (∀ x → x ∈ xs → P x) → All P xs
+  from p [] f = []
+  from p (x ∷ xs) f = f x (here refl) ∷ from p xs λ a i → f a (there i)
+  from∘to : ∀ {A} ( P : A → Set ) ( xs : List A ) (apx : All P xs)
+    → from P xs (to P xs apx) ≡ apx
+  from∘to p [] [] = refl
+  from∘to p (x ∷ xs) (px ∷ apx) = cong (px ∷_) (from∘to p xs apx)
+  to∘from-ex : ∀ {A} ( P : A → Set ) ( xs : List A )
+    (f : (x : A) (i : x ∈ xs) → P x) (a : A) (j : a ∈ xs)
+    → to P xs (from P xs f) a j ≡ f a j
+  to∘from-ex p (x ∷ xs) f a (here refl) = refl
+  to∘from-ex p (x ∷ xs) f a (there j)
+    rewrite to∘from-ex p xs (λ b i → f b (there i)) a j
+    = refl
+--     begin
+--       to p (x ∷ xs)
+--       (f x (here refl) ∷ from p xs (λ b i → f b (there i))) a (there j)
+--     ≡⟨⟩
+--       to p xs (from p xs (λ b i → f b (there i))) a j
+--     ≡⟨ to∘from-ex p xs (λ b i → f b (there i)) a j ⟩
+--       (λ b i → f b (there i)) a j
+--     ≡⟨⟩
+--       f a (there j)
+--     ∎
+  to∘from : ∀ {A} ( P : A → Set ) ( xs : List A )
+    (f : (x : A) (i : x ∈ xs) → P x)
+    → to P xs (from P xs f) ≡ f
+  to∘from p xs f = ∀-extensionality
+    (λ a → ∀-extensionality λ j → to∘from-ex p xs f a j)
 ```
 
 
@@ -1199,6 +1326,9 @@ Show that `Any P xs` is isomorphic to `∃[ x ] (x ∈ xs × P x)`.
 
 ```agda
 -- You code goes here
+Any-∃ : ∀ {A} ( P : A → Set ) ( xs : List A )
+  → Any P xs ≃ ∃[ x ] (x ∈ xs × P x)
+Any-∃ p xs = record { to = {!!} ; from = {!!} ; from∘to = {!!} ; to∘from = {!!} }
 ```
 
 
