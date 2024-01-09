@@ -1328,7 +1328,47 @@ Show that `Any P xs` is isomorphic to `∃[ x ] (x ∈ xs × P x)`.
 -- You code goes here
 Any-∃ : ∀ {A} ( P : A → Set ) ( xs : List A )
   → Any P xs ≃ ∃[ x ] (x ∈ xs × P x)
-Any-∃ p xs = record { to = {!!} ; from = {!!} ; from∘to = {!!} ; to∘from = {!!} }
+Any-∃ p xs = record {
+  to = to p xs ;
+  from = from p xs ;
+  from∘to = from∘to p xs ;
+  to∘from = to∘from p xs }
+  where
+    to : ∀ {A} ( P : A → Set ) ( xs : List A )
+      → Any P xs → ∃[ x ] (x ∈ xs × P x)
+    to p (x ∷ xs) (here px) = ⟨ x , ⟨ (here refl) , px ⟩ ⟩
+    to p (x ∷ xs) (there apx) with to p xs apx
+    ... | ⟨ a , ⟨ a∈xs , pa ⟩ ⟩ = ⟨ a , ⟨ (there a∈xs) , pa ⟩ ⟩
+    from : ∀ {A} ( P : A → Set ) ( xs : List A )
+      → ∃[ x ] (x ∈ xs × P x) → Any P xs
+    from p [] ()
+    from _ _ ⟨ _ , ⟨ here refl , pa ⟩ ⟩ = here pa
+    from p (x ∷ xs) ⟨ a , ⟨ there a∈xxs , pa ⟩ ⟩ = there $ from p xs ⟨ a , ⟨ a∈xxs , pa ⟩ ⟩
+    from∘to : ∀ {A} ( P : A → Set ) ( xs : List A ) (apx : Any P xs)
+      → from P xs (to P xs apx) ≡ apx
+    from∘to _ [] ()
+    from∘to _ _ (here _) = refl
+    from∘to p (x ∷ xs) (there apx)
+      rewrite from∘to p xs apx = refl
+      -- cong there $ begin
+      --   from p xs (to p xs apx)
+      -- ≡⟨ from∘to p xs apx ⟩
+      --   apx
+      -- ∎
+    to∘from : ∀ {A} ( P : A → Set ) ( xs : List A ) (ex : ∃[ x ] (x ∈ xs × P x))
+      → to P xs (from P xs ex) ≡ ex
+    to∘from _ [] ()
+    to∘from _ _ ⟨ _ , ⟨ here refl , _ ⟩ ⟩ = refl
+    to∘from p (x ∷ xs) ⟨ a , ⟨ there a∈xxs , pa ⟩ ⟩
+      rewrite (to∘from p xs ⟨ a , ⟨ a∈xxs , pa ⟩ ⟩)
+      = refl
+      -- begin
+      --   to p (x ∷ xs) (from p (x ∷ xs) ⟨ a , ⟨ there a∈xxs , pa ⟩ ⟩)
+      -- ≡⟨⟩
+      --   to p (x ∷ xs) (there $ from p xs ⟨ a , ⟨ a∈xxs , pa ⟩ ⟩)
+      -- ≡⟨ {!!} ⟩
+      --    ⟨ a , ⟨ there a∈xxs , pa ⟩ ⟩
+      -- ∎
 ```
 
 
@@ -1379,6 +1419,13 @@ for some element of a list.  Give their definitions.
 
 ```agda
 -- Your code goes here
+Any? : ∀ {A : Set} {P : A → Set} → Decidable P → Decidable (Any P)
+Any? P? []                                 =  no (λ ()) -- yes []
+Any? P? (x ∷ xs) with P? x   | Any? P? xs
+...                 | _      | yes Pxs     =  yes (there Pxs)
+...                 | yes Px | _           =  yes (here Px)
+...                 | no ¬Px | no ¬Pxs     =  no (λ { (here Px) → ¬Px Px
+                                                    ; (there Pxs) → ¬Pxs Pxs })
 ```
 
 
@@ -1425,6 +1472,50 @@ with their corresponding proofs.
 
 ```agda
 -- Your code goes here
+y : ∀ {A : Set} {P : A → Set} (P? : Decidable P)
+  → A → List A → List A
+y P? a as with P? a
+... | yes p = a ∷ as
+... | no ¬p = as
+
+n : ∀ {A : Set} {P : A → Set} (P? : Decidable P)
+  → A → List A → List A
+n P? a as with P? a
+... | yes p = as
+... | no ¬p = a ∷ as
+
+ns : ∀ {A : Set} {P : A → Set} (P? : Decidable P)
+  → List A → List A
+ns P? = foldr (n P?) []
+ys :  ∀ {A : Set} {P : A → Set} (P? : Decidable P)
+  → List A → List A
+ys P? = foldr (y P?) []
+
+split : ∀ {A : Set} {P : A → Set} (P? : Decidable P) (zs : List A)
+  → ∃[ xs ] ∃[ ys ] ( merge xs ys zs × All P xs × All (¬_ ∘ P) ys )
+split {A} P? zs =
+  ⟨ ys P? zs , ⟨ ns P? zs , ⟨ merge-zs P? zs , ⟨ All-P?-ys P? zs , All-¬P?-ys P? zs ⟩ ⟩ ⟩ ⟩
+  where
+  merge-zs : ∀ {A : Set} {P : A → Set} (P? : Decidable P) (zs : List A)
+    → merge (ys P? zs) (ns P? zs) zs
+  merge-zs P? [] = []
+  merge-zs P? (z ∷ zs) with P? z
+  ... | yes p = left-∷ $ merge-zs P? zs
+  ... | no ¬p = right-∷ $ merge-zs P? zs
+
+  All-P?-ys : ∀ {A : Set} {P : A → Set} (P? : Decidable P) (zs : List A)
+    → All P (ys P? zs)
+  All-P?-ys P? [] = []
+  All-P?-ys P? (z ∷ zs) with P? z
+  ... | yes p = p ∷ (All-P?-ys P? zs)
+  ... | no _ = All-P?-ys P? zs
+
+  All-¬P?-ys : ∀ {A : Set} {P : A → Set} (P? : Decidable P) (zs : List A)
+    → All (¬_ ∘ P) (ns P? zs)
+  All-¬P?-ys P? [] = []
+  All-¬P?-ys P? (z ∷ zs) with P? z
+  ... | yes _ = All-¬P?-ys P? zs
+  ... | no ¬p = ¬p ∷ (All-¬P?-ys P? zs)
 ```
 
 ## Standard Library
