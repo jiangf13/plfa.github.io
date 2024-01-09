@@ -60,7 +60,7 @@ open import Data.Unit using (tt)
 open import Relation.Nullary using (Dec; yes; no; ¬_)
 open import Relation.Nullary.Decidable using (False; toWitnessFalse)
 open import Relation.Nullary.Negation using (¬?)
-open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; subst)
 ```
 
 ## Syntax of terms
@@ -559,6 +559,8 @@ substitution.
 
 ```agda
 -- Your code goes here
+_[_:=_]′ : Term → Id → Term → Term
+x [ y := z ]′ = {!subst ? ? ? ?!}
 ```
 
 
