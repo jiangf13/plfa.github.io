@@ -194,6 +194,11 @@ defined earlier.
 
 ```agda
 -- Your code goes here
+mul : Term
+mul = μ "*" ⇒ ƛ "m" ⇒ ƛ "n" ⇒
+  case ` "m"
+    [zero⇒ `zero
+    |suc "m" ⇒ plus · ` "m" · (` "*" · ` "m" · ` "n")  ]
 ```
 
 
@@ -206,6 +211,9 @@ definition may use `plusᶜ` as defined earlier (or may not
 
 ```agda
 -- Your code goes here
+mulᶜ : Term
+mulᶜ =  ƛ "m" ⇒ ƛ "n" ⇒ ƛ "s" ⇒ ƛ "z" ⇒
+         ` "m" · (` "n" · ` "s" · ` "z") · ` "z"
 ```
 
 
@@ -254,6 +262,17 @@ plus′ = μ′ + ⇒ ƛ′ m ⇒ ƛ′ n ⇒
             |suc m ⇒ `suc (+ · m · n) ]
   where
   +  =  ` "+"
+  m  =  ` "m"
+  n  =  ` "n"
+
+mul′ : Term
+mul′ = μ′ * ⇒ ƛ′ m ⇒ ƛ′ n ⇒
+          case′ m
+            [zero⇒ `zero
+            |suc m ⇒ plus′ · (* · m · n) · n
+            ]
+  where
+  *  =  ` "*"
   m  =  ` "m"
   n  =  ` "n"
 ```
