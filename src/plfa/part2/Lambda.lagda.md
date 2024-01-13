@@ -60,7 +60,10 @@ open import Data.Unit using (tt)
 open import Relation.Nullary using (Dec; yes; no; ¬_)
 open import Relation.Nullary.Decidable using (False; toWitnessFalse)
 open import Relation.Nullary.Negation using (¬?)
-open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; subst)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym)
+
+open import plfa.part1.Isomorphism using (_≲_; _≃_; _⇔_; extensionality; ∀-extensionality)
+open import Function using (_$_; _∘_)
 ```
 
 ## Syntax of terms
@@ -560,7 +563,25 @@ substitution.
 ```agda
 -- Your code goes here
 _[_:=_]′ : Term → Id → Term → Term
-x [ y := z ]′ = {!subst ? ? ? ?!}
+_[_≟′_:=_] : Term → Id → Id → Term → Term
+
+t [ x ≟′ y := z ] with x ≟ y
+... | yes _ = t
+... | _ = t [ y := z ]′
+
+(` x) [ y := z ]′ with x ≟ y
+... | yes _ = z
+... | _ = ` x
+`zero [ y := z ]′ = `zero
+(`suc x) [ y := z ]′ = `suc x [ y := z ]′
+(L · M) [ y := z ]′ = L [ y := z ]′  · M [ y := z ]′
+
+(ƛ x ⇒ N) [ y := z ]′ = ƛ x ⇒ N [ x ≟′ y := z ]
+case L [zero⇒ M |suc x ⇒ N ] [ y := z ]′ =
+  case L [ y := z ]′
+    [zero⇒ M [ y := z ]′
+    |suc x ⇒ N [ x ≟′ y := z ] ]
+(μ x ⇒ N) [ y := z ]′ = μ x ⇒ N [ x ≟′ y := z ]
 ```
 
 
@@ -706,6 +727,25 @@ defined above.)
 2.  `` (ƛ "z" ⇒ sucᶜ · (sucᶜ · ` "z")) · `zero ``
 3.  `` `zero ``
 
+```agda
+_ : (ƛ "x" ⇒ ` "x") · (ƛ "x" ⇒ ` "x")  —→ (ƛ "x" ⇒ ` "x")
+_ = β-ƛ V-ƛ
+
+_ : (ƛ "x" ⇒ ` "x") · (ƛ "x" ⇒ ` "x") · (ƛ "x" ⇒ ` "x")
+  —→ (ƛ "x" ⇒ ` "x") · (ƛ "x" ⇒ ` "x")
+_ = ξ-·₁ $ β-ƛ V-ƛ
+_ : (ƛ "x" ⇒ ` "x") · (ƛ "x" ⇒ ` "x")  —→ (ƛ "x" ⇒ ` "x")
+_ = β-ƛ V-ƛ
+
+_ : twoᶜ · sucᶜ · `zero  —→ (ƛ "z" ⇒ sucᶜ · ( sucᶜ · ` "z")) · `zero
+_ = ξ-·₁ $ β-ƛ V-ƛ
+_ : (ƛ "z" ⇒ sucᶜ · ( sucᶜ · ` "z")) · `zero —→ sucᶜ · ( sucᶜ · `zero)
+_ = β-ƛ V-zero
+_ : sucᶜ · ( sucᶜ · `zero) —→ sucᶜ · `suc `zero
+_ = ξ-·₂ V-ƛ $ β-ƛ V-zero
+_ : sucᶜ · `suc `zero —→ `suc `suc `zero
+_ = β-ƛ $ V-suc V-zero
+```
 
 ## Reflexive and transitive closure
 
@@ -794,7 +834,44 @@ above embeds into the second. Why are they not isomorphic?
 
 ```agda
 -- Your code goes here
+—↠≲—↠′ : ∀ {M N} → M —↠ N ≲ M —↠′ N
+—↠≲—↠′ = record {
+  to = to ;
+  from = from ;
+  from∘to = from∘to }
+  where
+  to : ∀ {M N} → M —↠ N → M —↠′ N
+  to (_ ∎) = refl′
+  to (_ —→⟨ L—→M ⟩ M—↠N) = trans′ (step′ L—→M) $ to M—↠N
+
+  trans : ∀ {L M N} → L —↠ M → M —↠ N → L —↠ N
+  trans (_ ∎) mn = mn
+  trans (_ —→⟨ x ⟩ lm) mn = _ —→⟨ x ⟩_ $ trans lm mn
+  from : ∀ {M N} → M —↠′ N → M —↠ N
+  from {m} {n} (step′ x) = m —→⟨ x ⟩ n ∎
+  from {m} refl′ = m ∎
+  from {m} {n} (trans′ x y) = trans (from x) (from y)
+
+  from∘to : ∀ {M N} → (x : M —↠ N) → from (to x) ≡ x
+  from∘to (_ ∎) = refl
+  from∘to (_ —→⟨ lm ⟩ x) rewrite from∘to x = refl
 ```
+
+  trans′-identityˡ : ∀ {M N} → (x : M —↠′ N) → trans′ refl′ x ≡ x
+  trans′-identityˡ = {!!}
+  trans′-identityʳ : ∀ {M N} → (x : M —↠′ N) → trans′ x refl′ ≡ x
+  trans′-identityʳ = {!!}
+
+  to∘from : ∀ {M N} → (x : M —↠′ N) → to (from x) ≡ x
+  to∘from (step′ x) = trans′-identityʳ (step′ x)
+  to∘from refl′ = refl
+  to∘from (trans′ x y) with from x
+  ... | _ ∎ = {!!}
+  ... | _ —→⟨ t ⟩ a = {!!}
+
+  1. No equility relation for `—↠′`.
+    1.1 Thus, `trans′ (step′ x) refl′ ≡ step′ x` is not evident
+
 
 ## Confluence
 
@@ -959,6 +1036,39 @@ Write out the reduction sequence demonstrating that one plus one is two.
 
 ```agda
 -- Your code goes here
+-- plus-example : {!!}
+one : Term
+one = `suc `zero
+
+plus-example : plus · one · one —↠ `suc (`suc `zero)
+plus-example = begin
+    plus · one · one
+  —→⟨ ξ-·₁ (ξ-·₁ β-μ) ⟩
+    (ƛ "m" ⇒ ƛ "n" ⇒
+      case ` "m" [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · one · one
+  —→⟨ ξ-·₁ (β-ƛ (V-suc V-zero)) ⟩
+    (ƛ "n" ⇒
+      case one [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · one
+  —→⟨ β-ƛ (V-suc V-zero) ⟩
+    case one [zero⇒ one |suc "m" ⇒ `suc (plus · ` "m" · one) ]
+  —→⟨ β-suc V-zero ⟩
+    `suc (plus · `zero · one)
+  —→⟨ ξ-suc (ξ-·₁ (ξ-·₁ β-μ)) ⟩
+    `suc ((ƛ "m" ⇒ ƛ "n" ⇒
+      case ` "m" [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · `zero · one)
+  —→⟨ ξ-suc (ξ-·₁ (β-ƛ V-zero)) ⟩
+    `suc ((ƛ "n" ⇒
+      case `zero [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+      · one)
+  —→⟨ ξ-suc (β-ƛ (V-suc V-zero)) ⟩
+    `suc (case `zero
+      [zero⇒ one |suc "m" ⇒ `suc (plus · ` "m" · one) ])
+  —→⟨ ξ-suc β-zero ⟩
+    `suc (`suc `zero)
+  ∎
 ```
 
 
@@ -1023,6 +1133,13 @@ Thus:
 
   Give more than one answer if appropriate.
 
+```agda
+_ : Type -- (ƛ "s" ⇒ ` "s" · (` "s"  · `zero))
+_ = (`ℕ ⇒ `ℕ) ⇒ `ℕ
+
+_ : Type -- (ƛ "s" ⇒ ` "s" · (` "s"  · `zero)) · sucᶜ
+_ = `ℕ
+```
 
 ## Typing
 
@@ -1067,6 +1184,8 @@ to the list
 
 ```agda
 -- Your code goes here
+-- Context-≃ : ?
+Context-≃ = {!!}
 ```
 
 ### Lookup judgment
@@ -1409,12 +1528,26 @@ or explain why there is no such `A`.
 2. `` ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "x" · ` "y" ⦂ A ``
 3. `` ∅ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "x" ⇒ ` "y" · ` "x" ⦂ A ``
 
+```agda
+-- asdf1 : ?
+asdf1 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "y" · ` "x" ⦂ A
+
+asdf2 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "x" · ` "y" ⦂ A
+
+asdf3 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "x" ⇒ ` "y" · ` "x" ⦂ A
+```
+
 For each of the following, give types `A`, `B`, and `C` for which it is derivable,
 or explain why there are no such types.
 
 1. `` ∅ , "x" ⦂ A ⊢ ` "x" · ` "x" ⦂ B ``
 2. `` ∅ , "x" ⦂ A , "y" ⦂ B ⊢ ƛ "z" ⇒ ` "x" · (` "y" · ` "z") ⦂ C ``
 
+```agda
+qwer1 = {!!} -- ∅ , "x" ⦂ A ⊢ ` "x" · ` "x" ⦂ B
+
+qwer2 = {!!} -- ∅ , "x" ⦂ A , "y" ⦂ B ⊢ ƛ "z" ⇒ ` "x" · (` "y" · ` "z") ⦂ C
+```
 
 #### Exercise `⊢mul` (recommended)
 
@@ -1423,6 +1556,7 @@ showing that it is well typed.
 
 ```agda
 -- Your code goes here
+⊢mul = {!!}
 ```
 
 
@@ -1433,6 +1567,7 @@ showing that it is well typed.
 
 ```agda
 -- Your code goes here
+⊢mulᶜ = {!!}
 ```
 
 
