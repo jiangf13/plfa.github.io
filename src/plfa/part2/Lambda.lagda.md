@@ -54,7 +54,7 @@ open import Data.Bool using (Bool; true; false; T; not)
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.List using (List; _∷_; [])
 open import Data.Nat using (ℕ; zero; suc)
-open import Data.Product using (∃-syntax; _×_)
+open import Data.Product using (∃-syntax; _×_; _,_)
 open import Data.String using (String; _≟_)
 open import Data.Unit using (tt)
 open import Relation.Nullary using (Dec; yes; no; ¬_)
@@ -64,6 +64,10 @@ open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym
 
 open import plfa.part1.Isomorphism using (_≲_; _≃_; _⇔_; extensionality; ∀-extensionality)
 open import Function using (_$_; _∘_)
+
+import Relation.Binary.PropositionalEquality as Eq
+open Eq using (_≡_; refl; cong; cong-app)
+-- open Eq.≡-Reasoning using (begin_; step-≡; step-≡-⟩;step-≡-∣; _∎)
 ```
 
 ## Syntax of terms
@@ -1184,8 +1188,27 @@ to the list
 
 ```agda
 -- Your code goes here
--- Context-≃ : ?
-Context-≃ = {!!}
+Context-≃ : Context ≃ List (Id × Type)
+Context-≃ = record {
+  to = to ;
+  from = from ;
+  from∘to = {!!} ;
+  to∘from = {!!} }
+  where
+  to : Context → List (Id × Type)
+  to ∅ = []
+  to (c , x ⦂ t) = (x , t) ∷ to c
+  from : List (Id × Type) → Context
+  from [] = ∅
+  from ((x , t) ∷ xs) = (from xs) , x ⦂ t
+  from∘to : ∀ x → from (to x) ≡ x
+  from∘to ∅ = refl
+  from∘to (c , x ⦂ t) rewrite from∘to c
+    = refl -- cong (_, x ⦂ t) $ from∘to c
+  to∘from : ∀ x → to (from x) ≡ x
+  to∘from [] = refl
+  to∘from ((x , t) ∷ xs) rewrite to∘from xs
+    = refl
 ```
 
 ### Lookup judgment
