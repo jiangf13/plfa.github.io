@@ -1606,7 +1606,12 @@ showing that it is well typed.
 ```agda
 -- Your code goes here
 ⊢mulᶜ : ∀ {Γ A} → Γ  ⊢ plusᶜ ⦂ Ch A ⇒ Ch A ⇒ Ch A
-⊢mulᶜ = {!S′!}
+⊢mulᶜ = ⊢ƛ (⊢ƛ (⊢ƛ (⊢ƛ (((⊢` ∋a) · ⊢` ∋b) · (((⊢` ∋c) · ⊢` ∋d) · ⊢` Z)))))
+  where
+  ∋a = S′ (S′ (S′ Z))
+  ∋b = S′ Z
+  ∋c = S′ (S′ Z)
+  ∋d = S′ Z
 ```
 
 
