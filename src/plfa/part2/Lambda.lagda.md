@@ -1605,6 +1605,7 @@ showing that it is well typed.
 
 ```agda
 -- Your code goes here
+-- TODO similarly ?
 ⊢mulᶜ : ∀ {Γ A} → Γ  ⊢ plusᶜ ⦂ Ch A ⇒ Ch A ⇒ Ch A
 ⊢mulᶜ = ⊢ƛ (⊢ƛ (⊢ƛ (⊢ƛ (((⊢` ∋a) · ⊢` ∋b) · (((⊢` ∋c) · ⊢` ∋d) · ⊢` Z)))))
   where
