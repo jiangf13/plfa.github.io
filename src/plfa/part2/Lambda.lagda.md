@@ -1192,8 +1192,8 @@ Context-≃ : Context ≃ List (Id × Type)
 Context-≃ = record {
   to = to ;
   from = from ;
-  from∘to = {!!} ;
-  to∘from = {!!} }
+  from∘to = from∘to ;
+  to∘from = to∘from }
   where
   to : Context → List (Id × Type)
   to ∅ = []
@@ -1552,12 +1552,14 @@ or explain why there is no such `A`.
 3. `` ∅ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "x" ⇒ ` "y" · ` "x" ⦂ A ``
 
 ```agda
--- asdf1 : ?
-asdf1 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "y" · ` "x" ⦂ A
+asdf1 : ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "y" · ` "x" ⦂ `ℕ
+asdf1 = (⊢` (S (λ ()) Z)) · (⊢` Z)
 
-asdf2 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "x" · ` "y" ⦂ A
+asdf2 : ∀ {A} → ¬ (∅ , "y" ⦂ `ℕ ⇒ `ℕ , "x" ⦂ `ℕ ⊢ ` "x" · ` "y" ⦂ A)
+asdf2 (⊢` (S x (S x₁ ())) · z)
 
-asdf3 = {!!} -- ∅ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "x" ⇒ ` "y" · ` "x" ⦂ A
+asdf3 : ∅ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "x" ⇒ ` "y" · ` "x" ⦂ `ℕ ⇒ `ℕ
+asdf3 = ⊢ƛ ((⊢` (S (λ ()) Z)) · (⊢` Z))
 ```
 
 For each of the following, give types `A`, `B`, and `C` for which it is derivable,
