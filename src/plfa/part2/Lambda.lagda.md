@@ -1569,9 +1569,11 @@ or explain why there are no such types.
 2. `` ∅ , "x" ⦂ A , "y" ⦂ B ⊢ ƛ "z" ⇒ ` "x" · (` "y" · ` "z") ⦂ C ``
 
 ```agda
-qwer1 = {!!} -- ∅ , "x" ⦂ A ⊢ ` "x" · ` "x" ⦂ B
+qwer1 : ∀ {A B} → ¬ (∅ , "x" ⦂ A ⊢ ` "x" · ` "x" ⦂ B)
+qwer1 (⊢` Z · ⊢` (S x ()))
 
-qwer2 = {!!} -- ∅ , "x" ⦂ A , "y" ⦂ B ⊢ ƛ "z" ⇒ ` "x" · (` "y" · ` "z") ⦂ C
+qwer2 : ∅ , "x" ⦂ `ℕ ⇒ `ℕ , "y" ⦂ `ℕ ⇒ `ℕ ⊢ ƛ "z" ⇒ ` "x" · (` "y" · ` "z") ⦂ `ℕ ⇒ `ℕ
+qwer2 = ⊢ƛ ((⊢` (S (λ ()) (S (λ ()) Z))) · ((⊢` (S (λ ()) Z)) · (⊢` Z)))
 ```
 
 #### Exercise `⊢mul` (recommended)
@@ -1581,7 +1583,18 @@ showing that it is well typed.
 
 ```agda
 -- Your code goes here
-⊢mul = {!!}
+-- TODO I don′t really understand, what do `∋a`, `∋b` etc. really mean?
+⊢mul : ∀ {Γ} → Γ ⊢ mul ⦂ `ℕ ⇒ `ℕ ⇒ `ℕ
+⊢mul = ⊢μ (⊢ƛ (⊢ƛ (⊢case ∋m ⊢zero ∋*)))
+  where
+  ∋m = ⊢` (S′ Z)
+  ∋* = ((⊢μ (⊢ƛ (⊢ƛ (⊢case (⊢` ∋a) (⊢` Z) (⊢suc (((⊢` ∋b) · ⊢` Z) · ⊢` ∋c)))))) · (⊢` Z)) · (((⊢` ∋d) · ⊢` Z) · ⊢` ∋e)
+    where
+    ∋a = S′ Z
+    ∋b = S′ (S′ (S′ Z))
+    ∋c = S′ Z
+    ∋d = S′ (S′ (S′ Z))
+    ∋e = S′ Z
 ```
 
 
@@ -1592,7 +1605,8 @@ showing that it is well typed.
 
 ```agda
 -- Your code goes here
-⊢mulᶜ = {!!}
+⊢mulᶜ : ∀ {Γ A} → Γ  ⊢ plusᶜ ⦂ Ch A ⇒ Ch A ⇒ Ch A
+⊢mulᶜ = {!S′!}
 ```
 
 
