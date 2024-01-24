@@ -156,6 +156,29 @@ that is, the canonical forms are exactly the well-typed values.
 
 ```
 -- Your code goes here
+Canonical-≃ : ∀ {A V} → Canonical V ⦂ A ≃ (∅ ⊢ V ⦂ A) × (Value V)
+Canonical-≃ = record {
+  to = to ;
+  from = from ;
+  from∘to = from∘to ;
+  to∘from = to∘from }
+  where
+  to : ∀ {A V} → (Canonical V ⦂ A) → ((∅ ⊢ V ⦂ A) × (Value V))
+  to (C-ƛ x) = ⟨ (⊢ƛ x) , V-ƛ ⟩
+  to C-zero = ⟨ ⊢zero , V-zero ⟩
+  to (C-suc c) = ⟨ (⊢suc (proj₁ (to c))) , (V-suc (proj₂ (to c))) ⟩
+  from : ∀ {A V} → ((∅ ⊢ V ⦂ A) × (Value V)) → (Canonical V ⦂ A)
+  from ⟨ ⊢ƛ x , V-ƛ ⟩ = C-ƛ x
+  from ⟨ ⊢zero , V-zero ⟩ = C-zero
+  from ⟨ ⊢suc x , V-suc y ⟩ = C-suc (from ⟨ x , y ⟩)
+  from∘to : ∀ {A V} → (x : Canonical V ⦂ A) → from (to x) ≡ x
+  from∘to (C-ƛ x) = refl
+  from∘to C-zero = refl
+  from∘to (C-suc x) rewrite from∘to x = refl
+  to∘from : ∀ {A V} → (x : ((∅ ⊢ V ⦂ A) × (Value V))) → to (from x) ≡ x
+  to∘from ⟨ ⊢ƛ x , V-ƛ ⟩ = refl
+  to∘from ⟨ ⊢zero , V-zero ⟩ = refl
+  to∘from ⟨ ⊢suc x , V-suc y ⟩ rewrite to∘from ⟨ x , y ⟩ = refl
 ```
 
 ## Progress
