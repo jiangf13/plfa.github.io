@@ -305,6 +305,53 @@ Show that `Progress M` is isomorphic to `Value M ⊎ ∃[ N ](M —→ N)`.
 
 ```agda
 -- Your code goes here
+Progress-≃ : ∀ {M N : Term} → Progress M ≃ Value M ⊎ ∃[ N ](M —→ N)
+Progress-≃ {M} {N} = record {
+  to = to {M} {N};
+  from = from ;
+  from∘to = from∘to ;
+  to∘from = to∘from }
+  where
+  to : ∀ {M N : Term} → Progress M → Value M ⊎ ∃[ N ](M —→ N)
+  to (step z@(ξ-·₁ {L′ = L′} {M} _)) = inj₂ ⟨ L′ · M , z ⟩
+  to (step z@(ξ-·₂ {V} {M′ = M′} _ _)) = inj₂ ⟨ V · M′ , z ⟩
+  to (step z@(β-ƛ {x} {N} {V} _)) = inj₂ ⟨ N [ x := V ] , z ⟩
+  to (step z@(ξ-suc {M′ = M′} _)) = inj₂ ⟨ `suc M′ , z ⟩
+  to (step z@(ξ-case {x = x} {L′ = L′} {M} {N} _))
+    = inj₂ ⟨ case L′ [zero⇒ M |suc x ⇒ N ] , z ⟩
+  to (step z@(β-zero {M = M})) = inj₂ ⟨ M , z ⟩
+  to (step z@(β-suc {x} {V} {N = N} _)) = inj₂ ⟨ N [ x := V ] , z ⟩
+  to (step z@(β-μ {x} {M})) = inj₂ ⟨ M [ x := μ x ⇒ M ] , z ⟩
+  to (done V-ƛ) = inj₁ V-ƛ
+  to (done V-zero) = inj₁ V-zero
+  to (done (V-suc x)) = inj₁ (V-suc x)
+  from : ∀ {M N : Term} → Value M ⊎ ∃[ N ](M —→ N) → Progress M
+  from (inj₁ x) = done x
+  from (inj₂ ⟨ _ , x ⟩) = step x
+  from∘to : ∀ {M N : Term} ( x : Progress M ) → from {M} {N} (to {M} {N} x) ≡ x
+  from∘to (step (ξ-·₁ x)) = refl
+  from∘to (step (ξ-·₂ x x₁)) = refl
+  from∘to (step (β-ƛ x)) = refl
+  from∘to (step (ξ-suc x)) = refl
+  from∘to (step (ξ-case x)) = refl
+  from∘to (step β-zero) = refl
+  from∘to (step (β-suc x)) = refl
+  from∘to (step β-μ) = refl
+  from∘to (done V-ƛ) = refl
+  from∘to (done V-zero) = refl
+  from∘to (done (V-suc x)) = refl
+  to∘from : ∀ {M N : Term} ( x : Value M ⊎ ∃[ N ](M —→ N) ) → to {M} {N} (from {M} {N} x) ≡ x
+  to∘from (inj₁ V-ƛ) = refl
+  to∘from (inj₁ V-zero) = refl
+  to∘from (inj₁ (V-suc x)) = refl
+  to∘from (inj₂ ⟨ _ , ξ-·₁ snd ⟩) = refl
+  to∘from (inj₂ ⟨ _ , ξ-·₂ x snd ⟩) = refl
+  to∘from (inj₂ ⟨ _ , β-ƛ x ⟩) = refl
+  to∘from (inj₂ ⟨ _ , ξ-suc snd ⟩) = refl
+  to∘from (inj₂ ⟨ _ , ξ-case snd ⟩) = refl
+  to∘from (inj₂ ⟨ _ , β-zero ⟩) = refl
+  to∘from (inj₂ ⟨ _ , β-suc x ⟩) = refl
+  to∘from (inj₂ ⟨ _ , β-μ ⟩) = refl
 ```
 
 #### Exercise `progress′` (practice)
